@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Book a Session — Vikashan</title>
 <style>
@@ -114,8 +115,8 @@
     <div class="tier-opts" id="tier-opts"></div>
     <div class="slider-wrap">
       <div class="slider-label"><span id="slider-min">$150</span><span id="slider-max">$220</span></div>
-      <input type="range" class="price-slider" id="price-slider" min="165" max="242" value="204" oninput="updatePrice()">
-      <div class="selected-price" id="selected-price">$204 <span>/ session</span></div>
+      <input type="range" class="price-slider" id="price-slider" min="150" max="250" value="200" oninput="updatePrice()">
+      <div class="selected-price" id="selected-price">$200 <span>/ session</span></div>
     </div>
     <div class="field"><label>Number of sessions</label>
       <div class="pkg-opts">
@@ -277,9 +278,9 @@
 <script>
 const API_BASE = ''
 const TIERS = {
-  sustaining:  { min: 165, max: 242, default: 204 },
-  standard:    { min: 83,  max: 165, default: 124 },
-  concession:  { min: 22,  max: 83,  default: 55  }
+  sustaining:  { min: 150, max: 250, default: 200 },
+  standard:    { min: 65,  max: 150, default: 108 },
+  concession:  { min: 25,  max: 65,  default: 45  }
 }
 
 // Detect concession link (?tier=concession)
@@ -303,17 +304,17 @@ function initTierUI() {
     container.innerHTML = `
       <label class="tier-opt selected" id="tier-concession">
         <input type="radio" name="tier" value="concession" checked onchange="updateSlider()">
-        <div><div class="tier-opt-name">Concession — $22–$83 / hr</div><div class="tier-opt-price">Approved concession rate — thank you for being here</div></div>
+        <div><div class="tier-opt-name">Concession — $25–$65 / hr</div><div class="tier-opt-price">Approved concession rate — thank you for being here</div></div>
       </label>`
   } else {
     container.innerHTML = `
       <label class="tier-opt selected" id="tier-sustaining">
         <input type="radio" name="tier" value="sustaining" checked onchange="updateSlider()">
-        <div><div class="tier-opt-name">Sustaining — $165–$242 / hr</div><div class="tier-opt-price">Helps subsidise concession access for others</div></div>
+        <div><div class="tier-opt-name">Sustaining — $150–$250 / hr</div><div class="tier-opt-price">Helps subsidise concession access for others</div></div>
       </label>
       <label class="tier-opt" id="tier-standard">
         <input type="radio" name="tier" value="standard" onchange="updateSlider()">
-        <div><div class="tier-opt-name">Accessible Rate — $83–$165 / hr</div><div class="tier-opt-price">For those who need a lower rate to access support</div></div>
+        <div><div class="tier-opt-name">Accessible Rate — $65–$150 / hr</div><div class="tier-opt-price">For those who need a lower rate to access support</div></div>
       </label>`
   }
   updateSlider()
