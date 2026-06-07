@@ -26,10 +26,10 @@ export default async function handler(req, res) {
     const { availability } = req.body
     if (!availability) return res.status(400).json({ error: 'availability object required' })
 
-    // Build upsert rows for all day/hour combos we track (hours 6–21)
+    // Build upsert rows for all day/hour combos we track (hours 6–22)
     const rows = []
     for (let dow = 0; dow <= 6; dow++) {
-      for (let h = 6; h <= 21; h++) {
+      for (let h = 6; h <= 22; h++) {
         rows.push({
           day_of_week: dow,
           hour: h,
