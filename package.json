@@ -8,10 +8,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2",
-    "stripe": "^14",
-    "resend": "^3",
+    "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9",
-    "bcryptjs": "^2"
+    "resend": "^3",
+    "stripe": "^14"
   },
   "devDependencies": {
     "vercel": "latest"
