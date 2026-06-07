@@ -15,12 +15,14 @@ export default async function handler(req, res) {
     sessionTypeId, date, time,
     amountCentsPerSession, sessionsTotal,
     tier, notes, mailingOptIn,
-    paymentMethodId
+    paymentMethodId, planAmountCents, planFreq
   } = req.body
 
-  if (!clientName || !clientEmail || !date || !time || !sessionTypeId || !amountCentsPerSession || !sessionsTotal || !paymentMethodId) {
+  if (!clientName || !clientEmail || !date || !time || !sessionTypeId || !amountCentsPerSession || !sessionsTotal || !paymentMethodId || !planAmountCents) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
+
+  const firstInstalmentCents = Math.min(planAmountCents, amountCentsPerSession * sessionsTotal)
 
   const { data: sessionType } = await supabase
     .from('session_types').select('*').eq('id', sessionTypeId).single()
@@ -28,7 +30,9 @@ export default async function handler(req, res) {
 
   const meetLink = process.env.ZOOM_PERSONAL_LINK
   const totalCents = amountCentsPerSession * sessionsTotal
-  const instalmentCents = Math.ceil(totalCents / 3)
+  const instalmentCents = firstInstalmentCents
+  const freqDays = { weekly: 7, fortnightly: 14, monthly: 30 }
+  const daysUntilNext = freqDays[planFreq] || 30
 
   // Upsert client
   const { data: client, error: clientError } = await supabase
@@ -86,10 +90,12 @@ export default async function handler(req, res) {
     .select().single()
   if (bookingError) return res.status(500).json({ error: 'Failed to create booking' })
 
-  // Next charge date = 1 month from now
+  // Next charge date based on frequency
   const nextCharge = new Date()
-  nextCharge.setMonth(nextCharge.getMonth() + 1)
+  nextCharge.setDate(nextCharge.getDate() + daysUntilNext)
   const nextChargeDate = nextCharge.toISOString().slice(0, 10)
+  const remainingAfterFirst = totalCents - instalmentCents
+  const instalmentsTotalCount = remainingAfterFirst > 0 ? Math.ceil(remainingAfterFirst / planAmountCents) + 1 : 1
 
   // Create package
   const { data: pkg } = await supabase
@@ -103,10 +109,10 @@ export default async function handler(req, res) {
       stripe_payment_intent_id: intent.id,
       status: 'active',
       payment_plan: true,
-      instalments_total: 3,
+      instalments_total: instalmentsTotalCount,
       instalments_paid: 1,
-      instalment_amount_cents: instalmentCents,
-      next_charge_date: nextChargeDate,
+      instalment_amount_cents: planAmountCents,
+      next_charge_date: remainingAfterFirst > 0 ? nextChargeDate : null,
       stripe_customer_id: customer.id,
       stripe_payment_method_id: paymentMethodId
     })

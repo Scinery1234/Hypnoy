@@ -110,10 +110,8 @@
   <div class="step" id="s2">
     <div class="step-label">Step 2 of 5 — Choose your rate &amp; package</div>
     <h2>Rate &amp; package</h2>
-    <p class="sub">Choose the tier that honestly reflects your financial situation, then set your rate and how many sessions you'd like.</p>
-    <div class="tier-opts" id="tier-opts">
-      <!-- populated by JS based on URL param -->
-    </div>
+    <p class="sub">Choose the tier that reflects your financial situation, then set your rate and number of sessions.</p>
+    <div class="tier-opts" id="tier-opts"></div>
     <div class="slider-wrap">
       <div class="slider-label"><span id="slider-min">$150</span><span id="slider-max">$220</span></div>
       <input type="range" class="price-slider" id="price-slider" min="150" max="220" value="185" oninput="updatePrice()">
@@ -122,23 +120,61 @@
     <div class="field"><label>Number of sessions</label>
       <div class="pkg-opts">
         <div class="pkg-opt selected" data-sessions="1" onclick="selectPkg(this,1)">
-          <div class="pkg-opt-num">1</div>
-          <div class="pkg-opt-label">session</div>
+          <div class="pkg-opt-num">1</div><div class="pkg-opt-label">session</div>
           <div class="pkg-opt-total" id="pkg-total-1">$185</div>
         </div>
         <div class="pkg-opt" data-sessions="3" onclick="selectPkg(this,3)">
-          <div class="pkg-opt-num">3</div>
-          <div class="pkg-opt-label">sessions</div>
+          <div class="pkg-opt-num">3</div><div class="pkg-opt-label">sessions</div>
           <div class="pkg-opt-total" id="pkg-total-3">$555</div>
         </div>
         <div class="pkg-opt" data-sessions="6" onclick="selectPkg(this,6)">
-          <div class="pkg-opt-num">6</div>
-          <div class="pkg-opt-label">sessions</div>
+          <div class="pkg-opt-num">6</div><div class="pkg-opt-label">sessions</div>
           <div class="pkg-opt-total" id="pkg-total-6">$1,110</div>
         </div>
       </div>
     </div>
-    <p class="note">No credit card required yet — you'll pay on the next step after choosing your date.</p>
+
+    <!-- Payment method -->
+    <div class="field" style="margin-top:.25rem">
+      <label>How would you like to pay?</label>
+      <div class="tier-opts" style="margin-top:.4rem">
+        <label class="tier-opt selected" id="pay-upfront-opt">
+          <input type="radio" name="paymethod" value="upfront" checked onchange="updatePayMethod()">
+          <div>
+            <div class="tier-opt-name">Pay upfront <span style="color:var(--sage);font-size:.78rem;margin-left:.4rem">Save 10%</span></div>
+            <div class="tier-opt-price" id="upfront-desc">Full amount now — $167 / session after discount</div>
+          </div>
+        </label>
+        <label class="tier-opt" id="pay-plan-opt">
+          <input type="radio" name="paymethod" value="plan" onchange="updatePayMethod()">
+          <div>
+            <div class="tier-opt-name">Flexible payment plan <span style="color:var(--ink-soft);font-size:.78rem;margin-left:.4rem">Interest-free</span></div>
+            <div class="tier-opt-price">Pay weekly, fortnightly or monthly — no interest, max 6 months</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Payment plan options (shown when plan selected) -->
+    <div id="plan-options" style="display:none;background:var(--clay-pale);border-radius:8px;padding:1rem;margin-bottom:1rem">
+      <div class="field-row" style="margin-bottom:.75rem">
+        <div class="field" style="margin-bottom:0">
+          <label>Payment amount ($)</label>
+          <input type="number" id="plan-amount" placeholder="e.g. 100" min="50" oninput="calcPlan()">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Frequency</label>
+          <select id="plan-freq" onchange="calcPlan()">
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Fortnightly</option>
+            <option value="monthly" selected>Monthly</option>
+          </select>
+        </div>
+      </div>
+      <div id="plan-calc" style="font-size:.82rem;color:var(--ink-mid);line-height:1.8;min-height:2rem"></div>
+    </div>
+
+    <p class="note" id="pay-note">10% discount applied for paying upfront. No credit card required until the payment step.</p>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="goStep(3)">Continue →</button>
       <a class="back-link" onclick="goStep(1)">← Back</a>
@@ -253,6 +289,7 @@ const B = {
   sessionTypeId: null, sessionName: '', durationMins: 60,
   tier: isConcession ? 'concession' : 'sustaining',
   amountPerSession: isConcession ? 50 : 185, sessionsTotal: 1,
+  isPlan: false, planAmount: 0, planFreq: 'monthly',
   date: null, dateLabel: '', time: null, timeLabel: '',
   fname: '', lname: '', email: '', phone: '', notes: '', mailingOptIn: true
 }
@@ -328,11 +365,71 @@ function updatePrice() {
   updatePackageTotals()
 }
 
+const UPFRONT_DISCOUNT = 0.10
+
 function updatePackageTotals() {
+  const isUpfront = document.querySelector('input[name=paymethod]:checked')?.value !== 'plan'
   ;[1,3,6].forEach(n => {
     const el = document.getElementById(`pkg-total-${n}`)
-    if (el) el.textContent = `$${(B.amountPerSession * n).toLocaleString()}`
+    if (!el) return
+    const base = B.amountPerSession * n
+    const total = isUpfront ? Math.round(base * (1 - UPFRONT_DISCOUNT)) : base
+    el.textContent = `$${total.toLocaleString()}`
   })
+  // Update upfront desc
+  const discounted = Math.round(B.amountPerSession * (1 - UPFRONT_DISCOUNT))
+  const upfrontDesc = document.getElementById('upfront-desc')
+  if (upfrontDesc) upfrontDesc.textContent = `Full amount now — $${discounted} / session after discount`
+}
+
+function updatePayMethod() {
+  const isPlan = document.querySelector('input[name=paymethod]:checked')?.value === 'plan'
+  B.isPlan = isPlan
+  document.getElementById('plan-options').style.display = isPlan ? 'block' : 'none'
+  document.getElementById('pay-upfront-opt').classList.toggle('selected', !isPlan)
+  document.getElementById('pay-plan-opt').classList.toggle('selected', isPlan)
+  document.getElementById('pay-note').textContent = isPlan
+    ? 'Interest-free. Full balance must be cleared within 6 months. Minimum $50 per payment.'
+    : '10% discount applied for paying upfront. No credit card required until the payment step.'
+  updatePackageTotals()
+  if (isPlan) calcPlan()
+}
+
+function calcPlan() {
+  const amtInput = parseInt(document.getElementById('plan-amount').value) || 0
+  const freq = document.getElementById('plan-freq').value
+  const total = B.amountPerSession * B.sessionsTotal
+  const el = document.getElementById('plan-calc')
+
+  if (amtInput < 50) {
+    el.textContent = amtInput > 0 ? 'Minimum payment is $50.' : ''
+    B.planAmount = 0
+    return
+  }
+  if (amtInput >= total) {
+    el.innerHTML = `✓ That covers the full amount in one payment.`
+    B.planAmount = amtInput; B.planFreq = freq
+    return
+  }
+
+  const freqDays = { weekly: 7, fortnightly: 14, monthly: 30 }
+  const freqLabel = { weekly: 'week', fortnightly: 'fortnight', monthly: 'month' }
+  const payments = Math.ceil(total / amtInput)
+  const days = payments * freqDays[freq]
+  const months = days / 30
+
+  B.planAmount = amtInput; B.planFreq = freq
+
+  if (months > 6) {
+    const minPayment = Math.ceil(total / (6 * 30 / freqDays[freq]))
+    el.innerHTML = `⚠️ At $${amtInput}/${freqLabel[freq]} this would take ${Math.round(months)} months — over the 6-month maximum.<br>
+      Minimum payment at this frequency: <strong>$${minPayment}</strong>.`
+    B.planAmount = 0
+  } else {
+    const lastPayment = total - (amtInput * (payments - 1))
+    el.innerHTML = `✓ ${payments} payments of $${amtInput} ${freq === 'monthly' ? 'per month' : 'per ' + freqLabel[freq]}
+      ${lastPayment !== amtInput ? ` (last payment $${lastPayment})` : ''} — paid off in <strong>${Math.round(months)} month${Math.round(months) === 1 ? '' : 's'}</strong>.`
+  }
 }
 
 function selectPkg(el, n) {
@@ -411,9 +508,16 @@ function goStep(n) {
     B.phone = document.getElementById('phone').value.trim()
     B.notes = document.getElementById('notes').value.trim()
     B.mailingOptIn = document.getElementById('mailing').checked
+    B.isPlan = document.querySelector('input[name=paymethod]:checked')?.value === 'plan'
+    B.planFreq = document.getElementById('plan-freq')?.value || 'monthly'
+    B.planAmount = parseInt(document.getElementById('plan-amount')?.value) || 0
     if (!B.fname || !B.email) {
       if (!B.fname) document.getElementById('fname').style.borderColor = '#e53e3e'
       if (!B.email) document.getElementById('email').style.borderColor = '#e53e3e'
+      return
+    }
+    if (B.isPlan && B.planAmount < 50) {
+      alert('Please enter a payment plan amount of at least $50.')
       return
     }
     renderSummary()
@@ -427,37 +531,33 @@ function goStep(n) {
 // ── Summary ─────────────────────────────────────────────────────
 function renderSummary() {
   const tierLabel = { sustaining: 'Sustaining', standard: 'Accessible Rate', concession: 'Concession' }
-  const total = B.amountPerSession * B.sessionsTotal
-  const instalment = Math.ceil(total / 3)
+  const fullTotal = B.amountPerSession * B.sessionsTotal
+  const discountedTotal = Math.round(fullTotal * (1 - UPFRONT_DISCOUNT))
+  const isPlan = B.isPlan
+  const displayTotal = isPlan ? fullTotal : discountedTotal
+
   document.getElementById('sum-session').textContent = B.sessionName
   document.getElementById('sum-date').textContent = new Date(B.date).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})
   document.getElementById('sum-time').textContent = B.timeLabel + ' AEST'
   document.getElementById('sum-rate').textContent = `$${B.amountPerSession} / session (${tierLabel[B.tier]})`
   document.getElementById('sum-sessions').textContent = B.sessionsTotal === 1 ? '1 session' : `${B.sessionsTotal} sessions`
-  document.getElementById('sum-total').textContent = `$${total.toLocaleString()}`
-  // Show payment plan toggle only for packages > 1 session
-  const planWrap = document.getElementById('plan-toggle-wrap')
-  if (B.sessionsTotal > 1) {
-    planWrap.style.display = 'block'
-    document.getElementById('plan-desc').textContent = `3 × $${instalment.toLocaleString()} monthly — no extra charge`
-  } else {
-    planWrap.style.display = 'none'
-  }
-}
-
-function togglePlan() {
-  const isPlan = document.getElementById('plan-toggle').checked
-  const total = B.amountPerSession * B.sessionsTotal
-  const instalment = Math.ceil(total / 3)
-  document.getElementById('plan-toggle-label').style.borderColor = isPlan ? 'var(--clay)' : 'var(--border)'
-  document.getElementById('sum-total-label').textContent = isPlan ? 'Due today' : 'Total'
-  document.getElementById('sum-total').textContent = isPlan ? `$${instalment.toLocaleString()}` : `$${total.toLocaleString()}`
-  document.getElementById('pay-btn').textContent = isPlan ? `Pay $${instalment.toLocaleString()} & confirm` : 'Pay & confirm booking'
+  document.getElementById('sum-total-label').textContent = isPlan ? 'First payment' : 'Total (incl. 10% discount)'
+  document.getElementById('sum-total').textContent = isPlan
+    ? `$${B.planAmount.toLocaleString()} ${B.planFreq}`
+    : `$${discountedTotal.toLocaleString()}`
+  document.getElementById('plan-toggle-wrap').style.display = 'none'
+  document.getElementById('pay-btn').textContent = isPlan
+    ? `Pay $${B.planAmount.toLocaleString()} & start plan`
+    : `Pay $${discountedTotal.toLocaleString()} & confirm`
 }
 
 // ── Stripe ───────────────────────────────────────────────────────
 async function initStripe() {
   if (stripe) return
+  const discountedPerSession = B.isPlan
+    ? B.amountPerSession
+    : Math.round(B.amountPerSession * (1 - UPFRONT_DISCOUNT))
+
   const r = await fetch(`${API_BASE}/api/packages/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -468,11 +568,12 @@ async function initStripe() {
       sessionTypeId: B.sessionTypeId,
       date: B.date,
       time: B.time,
-      amountCentsPerSession: B.amountPerSession * 100,
+      amountCentsPerSession: discountedPerSession * 100,
       sessionsTotal: B.sessionsTotal,
-      tier: B.tier === 'sustaining' ? 'full_rate' : 'accessible',
+      tier: B.tier === 'sustaining' ? 'full_rate' : B.tier === 'concession' ? 'concession' : 'accessible',
       notes: B.notes || null,
-      mailingOptIn: B.mailingOptIn
+      mailingOptIn: B.mailingOptIn,
+      upfrontDiscount: !B.isPlan
     })
   })
   const data = await r.json()
@@ -513,7 +614,9 @@ async function submitPayment() {
         sessionsTotal: B.sessionsTotal,
         tier: B.tier === 'sustaining' ? 'full_rate' : B.tier === 'concession' ? 'concession' : 'accessible',
         notes: B.notes || null, mailingOptIn: B.mailingOptIn,
-        paymentMethodId: paymentMethod.id
+        paymentMethodId: paymentMethod.id,
+        planAmountCents: B.planAmount * 100,
+        planFreq: B.planFreq
       })
     })
     const data = await r.json()

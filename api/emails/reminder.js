@@ -81,10 +81,14 @@ export default async function handler(req, res) {
         const nextCharge = new Date()
         nextCharge.setMonth(nextCharge.getMonth() + 1)
 
+        const remainingBalance = (pkg.sessions_total * pkg.amount_cents_per_session) - (newPaid * pkg.instalment_amount_cents)
+        const nextChargeDateStr = isComplete || remainingBalance <= 0 ? null : (() => {
+          const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10)
+        })()
         await supabase.from('packages').update({
           instalments_paid: newPaid,
-          status: isComplete ? 'completed' : 'active',
-          next_charge_date: isComplete ? null : nextCharge.toISOString().slice(0, 10)
+          status: isComplete || remainingBalance <= 0 ? 'completed' : 'active',
+          next_charge_date: nextChargeDateStr
         }).eq('id', pkg.id)
 
         await sendPaymentPlanReceipt({
