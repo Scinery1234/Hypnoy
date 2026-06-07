@@ -1,5 +1,7 @@
 import { supabase } from '../../lib/supabase.js'
-import { sendReminder24h, sendReminder1h, sendFollowUp } from '../../lib/resend.js'
+import { sendReminder24h, sendReminder1h, sendFollowUp, sendPaymentPlanReceipt } from '../../lib/resend.js'
+import Stripe from 'stripe'
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
@@ -47,5 +49,57 @@ export default async function handler(req, res) {
     }
   }
 
-  res.json({ success: true, sent, checked: bookings?.length ?? 0 })
+  // Process due payment plan instalments
+  const today = now.toISOString().slice(0, 10)
+  const { data: duePlans } = await supabase
+    .from('packages')
+    .select('*, clients(*)')
+    .eq('payment_plan', true)
+    .eq('status', 'active')
+    .lte('next_charge_date', today)
+    .lt('instalments_paid', 'instalments_total')
+
+  const plansSent = { charged: 0, failed: 0 }
+
+  for (const pkg of duePlans ?? []) {
+    try {
+      const intent = await stripe.paymentIntents.create({
+        amount: pkg.instalment_amount_cents,
+        currency: 'aud',
+        customer: pkg.stripe_customer_id,
+        payment_method: pkg.stripe_payment_method_id,
+        confirm: true,
+        off_session: true,
+        description: `Vikashan payment plan — instalment ${pkg.instalments_paid + 1} of ${pkg.instalments_total}`,
+        receipt_email: pkg.clients.email,
+        metadata: { packageId: pkg.id, instalment: String(pkg.instalments_paid + 1) }
+      })
+
+      if (intent.status === 'succeeded') {
+        const newPaid = pkg.instalments_paid + 1
+        const isComplete = newPaid >= pkg.instalments_total
+        const nextCharge = new Date()
+        nextCharge.setMonth(nextCharge.getMonth() + 1)
+
+        await supabase.from('packages').update({
+          instalments_paid: newPaid,
+          status: isComplete ? 'completed' : 'active',
+          next_charge_date: isComplete ? null : nextCharge.toISOString().slice(0, 10)
+        }).eq('id', pkg.id)
+
+        await sendPaymentPlanReceipt({
+          client: pkg.clients,
+          instalmentNum: newPaid,
+          instalmentTotal: pkg.instalments_total,
+          amountCents: pkg.instalment_amount_cents,
+          isComplete
+        })
+        plansSent.charged++
+      }
+    } catch {
+      plansSent.failed++
+    }
+  }
+
+  res.json({ success: true, sent, plansSent, checked: bookings?.length ?? 0 })
 }

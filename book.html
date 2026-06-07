@@ -200,8 +200,20 @@
       <tr><td>Time</td><td id="sum-time">—</td></tr>
       <tr><td>Rate</td><td id="sum-rate">—</td></tr>
       <tr><td>Sessions</td><td id="sum-sessions">—</td></tr>
-      <tr class="summary-total"><td>Total</td><td id="sum-total">—</td></tr>
+      <tr class="summary-total"><td id="sum-total-label">Total</td><td id="sum-total">—</td></tr>
     </table>
+
+    <!-- Payment plan toggle (only for packages > 1 session) -->
+    <div id="plan-toggle-wrap" style="display:none;margin-bottom:1rem">
+      <label style="display:flex;align-items:flex-start;gap:.75rem;padding:.85rem 1rem;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .15s" id="plan-toggle-label">
+        <input type="checkbox" id="plan-toggle" style="accent-color:var(--clay);margin-top:3px" onchange="togglePlan()">
+        <div>
+          <div style="font-size:.87rem;font-weight:500">Interest-free payment plan</div>
+          <div style="font-size:.75rem;color:var(--ink-soft);margin-top:.15rem" id="plan-desc">Split into 3 monthly payments — no extra charge</div>
+        </div>
+      </label>
+    </div>
+
     <label style="margin-bottom:.5rem">Card details</label>
     <div id="stripe-element"></div>
     <div id="stripe-error"></div>
@@ -414,13 +426,33 @@ function goStep(n) {
 
 // ── Summary ─────────────────────────────────────────────────────
 function renderSummary() {
-  const tierLabel = { sustaining: 'Sustaining', standard: 'Accessible Rate' }
+  const tierLabel = { sustaining: 'Sustaining', standard: 'Accessible Rate', concession: 'Concession' }
+  const total = B.amountPerSession * B.sessionsTotal
+  const instalment = Math.ceil(total / 3)
   document.getElementById('sum-session').textContent = B.sessionName
   document.getElementById('sum-date').textContent = new Date(B.date).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})
   document.getElementById('sum-time').textContent = B.timeLabel + ' AEST'
   document.getElementById('sum-rate').textContent = `$${B.amountPerSession} / session (${tierLabel[B.tier]})`
   document.getElementById('sum-sessions').textContent = B.sessionsTotal === 1 ? '1 session' : `${B.sessionsTotal} sessions`
-  document.getElementById('sum-total').textContent = `$${(B.amountPerSession * B.sessionsTotal).toLocaleString()}`
+  document.getElementById('sum-total').textContent = `$${total.toLocaleString()}`
+  // Show payment plan toggle only for packages > 1 session
+  const planWrap = document.getElementById('plan-toggle-wrap')
+  if (B.sessionsTotal > 1) {
+    planWrap.style.display = 'block'
+    document.getElementById('plan-desc').textContent = `3 × $${instalment.toLocaleString()} monthly — no extra charge`
+  } else {
+    planWrap.style.display = 'none'
+  }
+}
+
+function togglePlan() {
+  const isPlan = document.getElementById('plan-toggle').checked
+  const total = B.amountPerSession * B.sessionsTotal
+  const instalment = Math.ceil(total / 3)
+  document.getElementById('plan-toggle-label').style.borderColor = isPlan ? 'var(--clay)' : 'var(--border)'
+  document.getElementById('sum-total-label').textContent = isPlan ? 'Due today' : 'Total'
+  document.getElementById('sum-total').textContent = isPlan ? `$${instalment.toLocaleString()}` : `$${total.toLocaleString()}`
+  document.getElementById('pay-btn').textContent = isPlan ? `Pay $${instalment.toLocaleString()} & confirm` : 'Pay & confirm booking'
 }
 
 // ── Stripe ───────────────────────────────────────────────────────
@@ -456,20 +488,48 @@ async function initStripe() {
 async function submitPayment() {
   const btn = document.getElementById('pay-btn')
   const errEl = document.getElementById('stripe-error')
+  const isPlan = document.getElementById('plan-toggle')?.checked && B.sessionsTotal > 1
   btn.disabled = true; btn.textContent = 'Processing…'; errEl.textContent = ''
 
-  const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-    payment_method: { card: cardElement, billing_details: { name: (B.fname + ' ' + B.lname).trim(), email: B.email } }
-  })
-
-  if (error) {
-    errEl.textContent = error.message
-    btn.disabled = false; btn.textContent = 'Pay & confirm booking'
-    return
-  }
-
-  if (paymentIntent.status === 'succeeded') {
+  if (isPlan) {
+    // Payment plan: create payment method then call setup-plan endpoint
+    const { error, paymentMethod } = await stripe.createPaymentMethod({
+      type: 'card', card: cardElement,
+      billing_details: { name: (B.fname + ' ' + B.lname).trim(), email: B.email }
+    })
+    if (error) {
+      errEl.textContent = error.message
+      btn.disabled = false; btn.textContent = `Pay & confirm booking`
+      return
+    }
+    const r = await fetch(`${API_BASE}/api/packages/setup-plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientName: (B.fname + ' ' + B.lname).trim(),
+        clientEmail: B.email, clientPhone: B.phone || null,
+        sessionTypeId: B.sessionTypeId, date: B.date, time: B.time,
+        amountCentsPerSession: B.amountPerSession * 100,
+        sessionsTotal: B.sessionsTotal,
+        tier: B.tier === 'sustaining' ? 'full_rate' : B.tier === 'concession' ? 'concession' : 'accessible',
+        notes: B.notes || null, mailingOptIn: B.mailingOptIn,
+        paymentMethodId: paymentMethod.id
+      })
+    })
+    const data = await r.json()
+    if (!r.ok) { errEl.textContent = data.error || 'Payment failed.'; btn.disabled = false; btn.textContent = 'Pay & confirm booking'; return }
     showSuccess()
+  } else {
+    // Full payment
+    const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card: cardElement, billing_details: { name: (B.fname + ' ' + B.lname).trim(), email: B.email } }
+    })
+    if (error) {
+      errEl.textContent = error.message
+      btn.disabled = false; btn.textContent = 'Pay & confirm booking'
+      return
+    }
+    if (paymentIntent.status === 'succeeded') showSuccess()
   }
 }
 
