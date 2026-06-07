@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { supabase } from '../../lib/supabase.js'
 import { sendConfirmation } from '../../lib/resend.js'
+import { createOutlookEvent } from '../../lib/outlook.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -47,11 +48,11 @@ export default async function handler(req, res) {
       .update({ status: 'active', primary_service: booking.session_types.name })
       .eq('id', booking.client_id)
 
-    await sendConfirmation({
-      booking: { ...booking, session_type_name: booking.session_types.name },
-      client: booking.clients,
-      zoomLink: booking.meet_link
-    })
+    const confirmedBooking = { ...booking, session_type_name: booking.session_types.name }
+    await Promise.all([
+      sendConfirmation({ booking: confirmedBooking, client: booking.clients, zoomLink: booking.meet_link }),
+      createOutlookEvent({ booking: confirmedBooking, client: booking.clients, meetLink: booking.meet_link })
+    ])
   }
 
   if (event.type === 'payment_intent.payment_failed') {

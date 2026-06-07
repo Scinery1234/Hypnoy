@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase.js'
 import { sendConfirmation } from '../../lib/resend.js'
+import { createOutlookEvent } from '../../lib/outlook.js'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -85,11 +86,11 @@ export default async function handler(req, res) {
   // Free / discovery call — confirm immediately
   if (!amountCents || amountCents === 0) {
     await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id)
-    await sendConfirmation({
-      booking: { ...booking, session_type_name: sessionType.name },
-      client,
-      zoomLink
-    })
+    const confirmedBooking = { ...booking, session_type_name: sessionType.name }
+    await Promise.all([
+      sendConfirmation({ booking: confirmedBooking, client, zoomLink }),
+      createOutlookEvent({ booking: confirmedBooking, client, meetLink: zoomLink })
+    ])
     return res.json({ success: true, bookingId: booking.id, zoomLink })
   }
 
