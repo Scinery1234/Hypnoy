@@ -1271,7 +1271,30 @@ footer{background:#1C1411;color:rgba(255,255,255,.4);padding:3.5rem 2.5rem 2rem}
 
 <script>
 // ================================================================
-// ADMIN
+// CONFIG
+// ================================================================
+const API_BASE = '';  // same origin — set to full URL if backend is on a different domain
+
+// Default availability used to render calendar grid (which days are clickable).
+// Actual booked-out slots are checked live from the API when a date is selected.
+const DEFAULT_AVAIL = {0:[],1:[],2:[10,11,14,15,16,17],3:[10,11,12,13,14],4:[14,15,16,17,18],5:[9,10,11],6:[]};
+
+// Discovery call session type ID — fetched on load
+let discoveryCallId = null;
+
+async function loadSessionTypes() {
+  try {
+    const r = await fetch(`${API_BASE}/api/session-types`);
+    const { sessionTypes } = await r.json();
+    const dc = sessionTypes.find(s => s.is_free);
+    if (dc) discoveryCallId = dc.id;
+  } catch(e) {
+    console.warn('Could not load session types', e);
+  }
+}
+
+// ================================================================
+// ADMIN (inline editing — localStorage is fine for content/settings)
 // ================================================================
 let adminMode = false;
 const CONTENT_KEY = 'vik_content';
@@ -1316,7 +1339,6 @@ function exitAdmin() {
   document.querySelectorAll('[data-edit]').forEach(el => el.contentEditable = 'false');
 }
 
-// SETTINGS
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
@@ -1324,7 +1346,7 @@ function loadSettings() {
     if (s.stdMax) { document.getElementById('s-std-max').value = s.stdMax; updatePriceDisplay(); }
     if (s.susMin) { document.getElementById('s-sus-min').value = s.susMin; updatePriceDisplay(); }
     if (s.susMax) { document.getElementById('s-sus-max').value = s.susMax; updatePriceDisplay(); }
-    if (s.email) { 
+    if (s.email) {
       document.getElementById('s-email').value = s.email;
       document.querySelectorAll('[data-edit=contact-email]').forEach(el => el.textContent = s.email);
       document.getElementById('f-email').href = 'mailto:' + s.email;
@@ -1362,12 +1384,8 @@ function updatePriceDisplay() {
   document.getElementById('disp-sus').textContent = '$' + uMin + '–$' + uMax;
 }
 
-function openSettings() {
-  document.getElementById('settings-panel').classList.add('open');
-}
-function closeSettings() {
-  document.getElementById('settings-panel').classList.remove('open');
-}
+function openSettings() { document.getElementById('settings-panel').classList.add('open'); }
+function closeSettings() { document.getElementById('settings-panel').classList.remove('open'); }
 function switchTab(id) {
   document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.stab-panel').forEach(p => p.classList.remove('active'));
@@ -1375,10 +1393,9 @@ function switchTab(id) {
   event.currentTarget.classList.add('active');
 }
 
-// AVAILABILITY
+// Availability panel (admin inline tool — still uses localStorage for quick edits)
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
-const DEFAULT_AVAIL = {0:[],1:[],2:[10,11,14,15,16,17],3:[10,11,12,13,14],4:[14,15,16,17,18],5:[9,10,11],6:[]};
 
 function getAvail() {
   try { const s = localStorage.getItem('vik_avail'); return s ? JSON.parse(s) : DEFAULT_AVAIL; } catch { return DEFAULT_AVAIL; }
@@ -1430,10 +1447,13 @@ function closeAvail() { document.getElementById('avail-panel').classList.remove(
 // ================================================================
 // BOOKING
 // ================================================================
-const B = {date:null,time:null,timeLabel:'',tier:'standard',fname:'',lname:'',email:''};
+const B = {date:null,time:null,timeStr:'',timeLabel:'',tier:'standard',fname:'',lname:'',email:'',phone:'',notes:'',mailingOptIn:true};
 let calY = new Date().getFullYear(), calM = new Date().getMonth();
 
-function openBooking() { document.getElementById('booking-overlay').classList.add('open'); goStep(1); renderCal(); }
+function openBooking() {
+  document.getElementById('booking-overlay').classList.add('open');
+  goStep(1); renderCal();
+}
 function closeBooking() { document.getElementById('booking-overlay').classList.remove('open'); }
 function handleOverlay(e,id) { if(e.target.id===id) document.getElementById(id).classList.remove('open'); }
 function openApplication() { document.getElementById('app-overlay').classList.add('open'); }
@@ -1442,13 +1462,19 @@ function closeApp() { document.getElementById('app-overlay').classList.remove('o
 function renderCal() {
   const avail = getAvail();
   const now = new Date(); now.setHours(0,0,0,0);
+  // Don't allow booking same day — require at least 1 day ahead
+  now.setDate(now.getDate() + 1);
   const first = new Date(calY,calM,1).getDay();
   const days = new Date(calY,calM+1,0).getDate();
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('cal-label').textContent = months[calM] + ' ' + calY;
   const grid = document.getElementById('cal-grid'); grid.innerHTML = '';
-  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => { const el=document.createElement('div');el.className='cal-dow';el.textContent=d;grid.appendChild(el); });
-  for(let i=0;i<first;i++) { const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el); }
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => {
+    const el=document.createElement('div'); el.className='cal-dow'; el.textContent=d; grid.appendChild(el);
+  });
+  for(let i=0;i<first;i++) {
+    const el=document.createElement('div'); el.className='cal-day empty'; grid.appendChild(el);
+  }
   for(let d=1;d<=days;d++) {
     const el = document.createElement('div');
     const date = new Date(calY,calM,d);
@@ -1460,7 +1486,7 @@ function renderCal() {
       el.className = 'cal-day available'; el.textContent = d;
       const ds = `${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       if(B.date===ds) el.classList.add('selected');
-      el.onclick = () => selectDate(ds,dow,el);
+      el.onclick = () => selectDate(ds, el);
     }
     grid.appendChild(el);
   }
@@ -1469,35 +1495,51 @@ function renderCal() {
 function prevMonth() { calM--; if(calM<0){calM=11;calY--;} renderCal(); }
 function nextMonth() { calM++; if(calM>11){calM=0;calY++;} renderCal(); }
 
-function selectDate(ds,dow,el) {
-  B.date=ds; B.time=null;
-  document.querySelectorAll('.cal-day.available').forEach(d=>d.classList.remove('selected'));
+async function selectDate(ds, el) {
+  B.date = ds; B.time = null; B.timeStr = ''; B.timeLabel = '';
+  document.querySelectorAll('.cal-day.available').forEach(d => d.classList.remove('selected'));
   el.classList.add('selected');
-  renderSlots(dow);
+
   const btn = document.getElementById('step1-next');
-  btn.disabled=true; btn.style.opacity='.4';
+  btn.disabled = true; btn.style.opacity = '.4';
+
+  const wrap = document.getElementById('slots-wrap');
+  const grid = document.getElementById('slots-grid');
+  wrap.style.display = 'block';
+  grid.innerHTML = '<span class="no-slots">Loading times…</span>';
+
+  try {
+    const r = await fetch(`${API_BASE}/api/availability?date=${ds}`);
+    const { slots } = await r.json();
+    const parts = ds.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('slots-label').textContent =
+      'Available times · ' + parseInt(parts[2]) + ' ' + months[parseInt(parts[1])-1];
+    grid.innerHTML = '';
+    if (!slots || !slots.length) {
+      grid.innerHTML = '<span class="no-slots">No times available this day.</span>';
+    } else {
+      slots.forEach(s => {
+        const slotEl = document.createElement('div');
+        slotEl.className = 'time-slot';
+        slotEl.textContent = s.label;
+        slotEl.onclick = () => selectTime(s.hour, s.label, slotEl);
+        grid.appendChild(slotEl);
+      });
+    }
+  } catch(e) {
+    grid.innerHTML = '<span class="no-slots">Could not load times. Please try again.</span>';
+  }
 }
 
-function renderSlots(dow) {
-  const avail = getAvail(); const hours = avail[dow]||[];
-  const parts = B.date.split('-');
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  document.getElementById('slots-label').textContent = 'Available times · ' + parseInt(parts[2]) + ' ' + months[parseInt(parts[1])-1];
-  const grid = document.getElementById('slots-grid'); grid.innerHTML='';
-  if(!hours.length) { grid.innerHTML='<span class="no-slots">No times available this day.</span>'; }
-  else { hours.forEach(h => {
-    const label = h<12?h+':00 AM':(h===12?'12:00 PM':(h-12)+':00 PM');
-    const el = document.createElement('div'); el.className='time-slot'+(B.time===h?' selected':'');
-    el.textContent=label; el.onclick=()=>selectTime(h,el,label); grid.appendChild(el);
-  }); }
-  document.getElementById('slots-wrap').style.display='block';
-}
-
-function selectTime(h,el,label) {
-  B.time=h; B.timeLabel=label;
-  document.querySelectorAll('.time-slot').forEach(s=>s.classList.remove('selected'));
+function selectTime(hour, label, el) {
+  B.time = hour;
+  B.timeStr = String(hour).padStart(2,'0') + ':00';
+  B.timeLabel = label;
+  document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
   el.classList.add('selected');
-  const btn=document.getElementById('step1-next'); btn.disabled=false; btn.style.opacity='1';
+  const btn = document.getElementById('step1-next');
+  btn.disabled = false; btn.style.opacity = '1';
 }
 
 function goStep(n) {
@@ -1513,61 +1555,202 @@ function goStep(n) {
 }
 
 function updateTierUI() {
-  const tier=document.querySelector('input[name=tier]:checked').value;
-  B.tier=tier;
+  B.tier = document.querySelector('input[name=tier]:checked').value;
 }
 
 function buildConfirm() {
+  B.fname = document.getElementById('b-fname').value.trim();
+  B.lname = document.getElementById('b-lname').value.trim();
+  B.email = document.getElementById('b-email').value.trim();
+  B.phone = document.getElementById('b-phone').value.trim();
+  B.notes = document.getElementById('b-notes').value.trim();
+  B.mailingOptIn = document.getElementById('b-mailopt').checked;
   const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  B.fname=document.getElementById('b-fname').value;
-  B.lname=document.getElementById('b-lname').value;
-  B.email=document.getElementById('b-email').value;
-  const dp=B.date?B.date.split('-'):null;
-  const dateStr=dp?parseInt(dp[2])+' '+months[parseInt(dp[1])-1]+' '+dp[0]:'—';
-  const tierLabel={standard:'Accessible Rate ($75–$150/hr)',sustaining:'Sustaining ($150–$220/hr)',concession:'Concession (application after call)'};
-  const rows=[['Service','Career & Wellness Coaching — Discovery Call'],['Format','Online (Zoom)'],['Date',dateStr],['Time',B.timeLabel||'—'],['Ongoing rate',tierLabel[B.tier]||'—'],['Name',((B.fname+' '+B.lname).trim())||'—'],['Email',B.email||'—']];
-  document.getElementById('confirm-box').innerHTML=rows.map(r=>'<div class="conf-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');
+  const dp = B.date ? B.date.split('-') : null;
+  const dateStr = dp ? parseInt(dp[2])+' '+months[parseInt(dp[1])-1]+' '+dp[0] : '—';
+  const tierLabel = {standard:'Accessible Rate ($75–$150/hr)',sustaining:'Sustaining ($150–$220/hr)',concession:'Concession (application after call)'};
+  const rows = [
+    ['Service','Career & Wellness Coaching — Discovery Call'],
+    ['Format','Online (Zoom)'],
+    ['Date', dateStr],
+    ['Time', B.timeLabel||'—'],
+    ['Ongoing rate', tierLabel[B.tier]||'—'],
+    ['Name', ((B.fname+' '+B.lname).trim())||'—'],
+    ['Email', B.email||'—']
+  ];
+  document.getElementById('confirm-box').innerHTML =
+    rows.map(r=>'<div class="conf-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');
 }
 
-function submitBooking() { goStep(5); }
+async function submitBooking() {
+  if (!B.date || !B.timeStr || !B.fname || !B.email) {
+    alert('Please fill in all required fields.');
+    return;
+  }
 
-function submitApp() {
-  document.getElementById('app-form').style.display='none';
-  document.getElementById('app-ok').style.display='block';
+  const submitBtn = document.querySelector('#step4 .btn-primary');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Booking…';
+
+  try {
+    const r = await fetch(`${API_BASE}/api/bookings/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientName: (B.fname + ' ' + B.lname).trim(),
+        clientEmail: B.email,
+        clientPhone: B.phone || null,
+        date: B.date,
+        time: B.timeStr,
+        sessionTypeId: discoveryCallId,
+        tier: B.tier === 'concession' ? 'concession' : B.tier === 'sustaining' ? 'full_rate' : 'accessible',
+        amountCents: 0,
+        notes: B.notes || null,
+        mailingOptIn: B.mailingOptIn
+      })
+    });
+
+    if (!r.ok) {
+      const { error } = await r.json();
+      throw new Error(error || 'Booking failed');
+    }
+
+    goStep(5);
+  } catch(e) {
+    alert('Something went wrong: ' + e.message + '\nPlease try again or email Vik directly.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Confirm Booking ✓';
+  }
 }
 
-function submitContact() {
-  document.getElementById('cf-ok').style.display='block';
-  document.getElementById('contact-form').querySelectorAll('input,select,textarea').forEach(el=>el.value='');
+// ================================================================
+// CONCESSION APPLICATION
+// ================================================================
+async function submitApp() {
+  const fname = document.getElementById('a-fname').value.trim();
+  const lname = document.getElementById('a-lname').value.trim();
+  const email = document.getElementById('a-email').value.trim();
+  const sit = document.getElementById('a-sit').value;
+  const reason = document.getElementById('a-reason').value.trim();
+  const rate = document.getElementById('a-rate').value.trim();
+
+  if (!fname || !email || !reason) {
+    alert('Please fill in your name, email and what support you\'re looking for.');
+    return;
+  }
+
+  const btn = document.querySelector('#app-form .btn-primary');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
+  try {
+    const r = await fetch(`${API_BASE}/api/contact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: (fname + ' ' + lname).trim(),
+        email,
+        service: 'Concession Application',
+        message: `Situation: ${sit}\nRate they can afford: $${rate}/hr\n\n${reason}`
+      })
+    });
+    if (!r.ok) throw new Error('Submit failed');
+    document.getElementById('app-form').style.display = 'none';
+    document.getElementById('app-ok').style.display = 'block';
+  } catch(e) {
+    alert('Something went wrong. Please email Vik directly.');
+    btn.disabled = false; btn.textContent = 'Submit application';
+  }
 }
 
-function submitMailing() {
-  const e=document.getElementById('ml-email').value;
-  if(!e||!e.includes('@')) return;
-  document.querySelector('.mail-form').querySelectorAll('input,button').forEach(el=>el.style.display='none');
-  document.getElementById('ml-ok').style.display='block';
+// ================================================================
+// CONTACT FORM
+// ================================================================
+async function submitContact() {
+  const fname = document.getElementById('cf-fname').value.trim();
+  const lname = document.getElementById('cf-lname').value.trim();
+  const email = document.getElementById('cf-email').value.trim();
+  const service = document.getElementById('cf-subj').value;
+  const message = document.getElementById('cf-msg').value.trim();
+
+  if (!fname || !email || !message) {
+    alert('Please fill in your name, email and message.');
+    return;
+  }
+
+  const btn = document.querySelector('#contact-form .btn-primary');
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  try {
+    const r = await fetch(`${API_BASE}/api/contact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: (fname + ' ' + lname).trim(),
+        email,
+        service,
+        message
+      })
+    });
+    if (!r.ok) throw new Error('Send failed');
+    document.getElementById('cf-ok').style.display = 'block';
+    document.getElementById('contact-form').querySelectorAll('input,select,textarea').forEach(el => el.value = '');
+    btn.disabled = false; btn.textContent = 'Send message';
+  } catch(e) {
+    alert('Something went wrong. Please email Vik directly.');
+    btn.disabled = false; btn.textContent = 'Send message';
+  }
 }
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeBooking();closeApp();closeSettings();}});
+// ================================================================
+// MAILING LIST
+// ================================================================
+async function submitMailing() {
+  const email = document.getElementById('ml-email').value.trim();
+  const name = document.getElementById('ml-name').value.trim();
+  if (!email || !email.includes('@')) return;
+
+  const btn = document.querySelector('.mail-form .btn-primary');
+  btn.disabled = true; btn.textContent = 'Subscribing…';
+
+  try {
+    const r = await fetch(`${API_BASE}/api/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name })
+    });
+    if (!r.ok) throw new Error('Subscribe failed');
+    document.querySelector('.mail-form').querySelectorAll('input,button').forEach(el => el.style.display = 'none');
+    document.getElementById('ml-ok').style.display = 'block';
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Subscribe';
+    alert('Something went wrong. Please try again.');
+  }
+}
+
+// ================================================================
+// INIT
+// ================================================================
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeBooking(); closeApp(); closeSettings(); }
+});
+
 loadContent();
 renderAvailAdmin();
+loadSessionTypes();
 
 // Mobile nav
 function toggleMobileNav() {
-  const nav = document.getElementById('mobile-nav');
-  nav.classList.toggle('open');
-  const hb = document.getElementById('hamburger');
-  hb.classList.toggle('open');
+  document.getElementById('mobile-nav').classList.toggle('open');
+  document.getElementById('hamburger').classList.toggle('open');
 }
 function closeMobileNav() {
   document.getElementById('mobile-nav').classList.remove('open');
   document.getElementById('hamburger').classList.remove('open');
 }
-// Close mobile nav on outside click
 document.addEventListener('click', function(e) {
   const nav = document.getElementById('mobile-nav');
   const hb = document.getElementById('hamburger');
-  if (nav.classList.contains('open') && !nav.contains(e.target) && !hb.contains(e.target)) {
+  if (nav && nav.classList.contains('open') && !nav.contains(e.target) && !hb.contains(e.target)) {
     closeMobileNav();
   }
 });

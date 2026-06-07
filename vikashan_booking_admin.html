@@ -418,6 +418,22 @@ body{font-family:var(--sans);background:var(--surface);color:var(--ink);font-siz
 </head>
 <body>
 
+<!-- LOGIN MODAL -->
+<div id="login-modal" style="display:none;position:fixed;inset:0;background:rgba(20,20,20,.85);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
+  <div style="background:#fff;border-radius:12px;padding:2.5rem 2rem;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="text-align:center;margin-bottom:1.75rem">
+      <div style="font-family:Georgia,serif;font-style:italic;font-size:1.4rem;color:var(--ink);margin-bottom:.25rem">Vikashan</div>
+      <div style="font-size:.78rem;color:var(--soft)">Admin sign in</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.75rem">
+      <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="vik@vikashan.com.au" autocomplete="email"></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"></div>
+    </div>
+    <div id="login-error" style="color:var(--red);font-size:.78rem;margin:.6rem 0 0;min-height:1.2em"></div>
+    <button id="login-btn" class="btn btn-primary" style="width:100%;margin-top:1rem;padding:.7rem" onclick="submitLogin()">Sign in</button>
+  </div>
+</div>
+
 <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
 <div class="layout">
 
@@ -501,23 +517,23 @@ body{font-family:var(--sans);background:var(--surface);color:var(--ink);font-siz
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">This Month Revenue</div>
-        <div class="stat-value">$2,840</div>
-        <div class="stat-change up">↑ 12% vs last month</div>
+        <div class="stat-value" id="stat-revenue">—</div>
+        <div class="stat-change" id="stat-revenue-change">Loading…</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Sessions Booked</div>
-        <div class="stat-value">18</div>
-        <div class="stat-change up">↑ 3 vs last month</div>
+        <div class="stat-value" id="stat-sessions">—</div>
+        <div class="stat-change" id="stat-sessions-change"></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Discovery Calls</div>
-        <div class="stat-value">6</div>
-        <div class="stat-change">→ 4 pending conversion</div>
+        <div class="stat-value" id="stat-discovery">—</div>
+        <div class="stat-change" id="stat-discovery-change"></div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Mailing List</div>
-        <div class="stat-value">142</div>
-        <div class="stat-change up">↑ 8 new this month</div>
+        <div class="stat-value" id="stat-subscribers">—</div>
+        <div class="stat-change" id="stat-subscribers-change"></div>
       </div>
     </div>
 
@@ -532,12 +548,8 @@ body{font-family:var(--sans);background:var(--surface);color:var(--ink);font-siz
         </div>
         <div class="table-wrap"><table class="table">
           <thead><tr><th>Client</th><th>Service</th><th>Date & Time</th><th>Rate</th><th>Status</th><th></th></tr></thead>
-          <tbody>
-            <tr><td data-label="Client">Priya M.</td><td data-label="Service">Career Coaching</td><td data-label="Date">Mon 9 Jun, 10:00am</td><td data-label="Rate">$150</td><td data-label="Status"><span class="badge badge-green">Confirmed</span></td><td><button class="btn btn-ghost btn-sm">View</button></td></tr>
-            <tr><td data-label="Client">James T.</td><td data-label="Service">Discovery Call</td><td data-label="Date">Mon 9 Jun, 2:00pm</td><td data-label="Rate">Free</td><td data-label="Status"><span class="badge badge-blue">Scheduled</span></td><td><button class="btn btn-ghost btn-sm">View</button></td></tr>
-            <tr><td data-label="Client">Anika R.</td><td data-label="Service">Psychotherapy</td><td data-label="Date">Wed 11 Jun, 11:00am</td><td data-label="Rate">$120</td><td data-label="Status"><span class="badge badge-green">Confirmed</span></td><td><button class="btn btn-ghost btn-sm">View</button></td></tr>
-            <tr><td data-label="Client">Daniel K.</td><td data-label="Service">Wellbeing Coaching</td><td data-label="Date">Thu 12 Jun, 3:00pm</td><td data-label="Rate">$95</td><td data-label="Status"><span class="badge badge-amber">Awaiting payment</span></td><td><button class="btn btn-ghost btn-sm">View</button></td></tr>
-            <tr><td data-label="Client">Sasha W.</td><td data-label="Service">Career Coaching</td><td data-label="Date">Fri 13 Jun, 10:00am</td><td data-label="Rate">$180</td><td data-label="Status"><span class="badge badge-green">Confirmed</span></td><td><button class="btn btn-ghost btn-sm">View</button></td></tr>
+          <tbody id="dashboard-upcoming-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--soft)">Loading…</td></tr>
           </tbody>
         </table></div>
       </div>
@@ -567,21 +579,22 @@ body{font-family:var(--sans);background:var(--surface);color:var(--ink);font-siz
     </button>
     <div><div class="topbar-title">Bookings</div><div style="font-size:.72rem;color:var(--soft)">All sessions and discovery calls</div></div>
     <div class="topbar-actions">
-      <select class="btn btn-ghost btn-sm" style="cursor:pointer"><option>All types</option><option>Career Coaching</option><option>Psychotherapy</option><option>Discovery Call</option><option>Wellbeing Coaching</option></select>
-      <select class="btn btn-ghost btn-sm" style="cursor:pointer"><option>All status</option><option>Confirmed</option><option>Pending</option><option>Cancelled</option></select>
+      <select class="btn btn-ghost btn-sm" style="cursor:pointer" onchange="filterBookingStatus(this.value)">
+        <option value="">All status</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="pending">Pending</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="no_show">No show</option>
+      </select>
     </div>
   </div>
   <div style="padding:2rem">
     <div class="card">
       <div class="table-wrap"><table class="table">
         <thead><tr><th>Client</th><th>Service</th><th>Date & Time</th><th>Duration</th><th>Rate</th><th>Payment</th><th>Meet Link</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-          <tr><td>Priya M.</td><td>Career Coaching</td><td>Mon 9 Jun, 10:00am</td><td>60 min</td><td>$150</td><td><span class="badge badge-green">Paid</span></td><td><a href="#" style="color:var(--clay);text-decoration:none;font-size:.73rem">Open Meet →</a></td><td><span class="badge badge-green">Confirmed</span></td><td><button class="btn btn-ghost btn-sm">•••</button></td></tr>
-          <tr><td>James T.</td><td>Discovery Call</td><td>Mon 9 Jun, 2:00pm</td><td>20 min</td><td>Free</td><td><span class="badge badge-gray">N/A</span></td><td><a href="#" style="color:var(--clay);text-decoration:none;font-size:.73rem">Open Meet →</a></td><td><span class="badge badge-blue">Scheduled</span></td><td><button class="btn btn-ghost btn-sm">•••</button></td></tr>
-          <tr><td>Anika R.</td><td>Psychotherapy</td><td>Wed 11 Jun, 11:00am</td><td>60 min</td><td>$120</td><td><span class="badge badge-green">Paid</span></td><td><a href="#" style="color:var(--clay);text-decoration:none;font-size:.73rem">Open Meet →</a></td><td><span class="badge badge-green">Confirmed</span></td><td><button class="btn btn-ghost btn-sm">•••</button></td></tr>
-          <tr><td>Daniel K.</td><td>Wellbeing Coaching</td><td>Thu 12 Jun, 3:00pm</td><td>90 min</td><td>$95</td><td><span class="badge badge-amber">Pending</span></td><td><a href="#" style="color:var(--clay);text-decoration:none;font-size:.73rem">Open Meet →</a></td><td><span class="badge badge-amber">Awaiting payment</span></td><td><button class="btn btn-ghost btn-sm">•••</button></td></tr>
-          <tr><td>Sasha W.</td><td>Career Coaching</td><td>Fri 13 Jun, 10:00am</td><td>60 min</td><td>$180</td><td><span class="badge badge-green">Paid</span></td><td><a href="#" style="color:var(--clay);text-decoration:none;font-size:.73rem">Open Meet →</a></td><td><span class="badge badge-green">Confirmed</span></td><td><button class="btn btn-ghost btn-sm">•••</button></td></tr>
-          <tr style="opacity:.5"><td>Maya S.</td><td>Career Coaching</td><td>Tue 3 Jun, 10:00am</td><td>60 min</td><td>$165</td><td><span class="badge badge-green">Paid</span></td><td>—</td><td><span class="badge badge-gray">Completed</span></td><td><button class="btn btn-ghost btn-sm">•••</button></td></tr>
+        <tbody id="bookings-tbody">
+          <tr><td colspan="9" style="text-align:center;color:var(--soft)">Loading…</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -626,7 +639,7 @@ body{font-family:var(--sans);background:var(--surface);color:var(--ink);font-siz
           <div class="card">
             <div class="card-head"><h3>Confirmation Email</h3><span class="badge badge-green">Sends immediately on booking</span></div>
             <div style="display:flex;flex-direction:column;gap:1rem">
-              <div class="field"><label>Subject line</label><input type="text" value="Your session is confirmed ✓ — {{date}} at {{time}}"></div>
+              <div class="field"><label>Subject line</label><input type="text" id="email-subj-confirm" value="Your session is confirmed ✓ — {{date}} at {{time}}"></div>
               <div class="field"><label>Pre-header text</label><input type="text" value="See you on {{date}}. Here's everything you need."></div>
               <div class="field"><label>Opening</label><textarea style="min-height:80px">Hi {{client_name}},
 
@@ -681,7 +694,7 @@ If you need to reschedule or cancel, you can do so using the links below — ple
       <div class="card">
         <div class="card-head"><h3>24-Hour Reminder</h3><span class="badge badge-amber">Sends 24hrs before session</span></div>
         <div class="form-grid">
-          <div class="field"><label>Subject line</label><input type="text" value="Reminder: your session tomorrow at {{time}}"></div>
+          <div class="field"><label>Subject line</label><input type="text" id="email-subj-remind24" value="Reminder: your session tomorrow at {{time}}"></div>
           <div class="field"><label>Send timing</label><select><option>24 hours before</option><option>48 hours before</option><option>Custom</option></select></div>
           <div class="field form-grid cols1"><label>Body text</label><textarea>Hi {{client_name}},
 
@@ -703,7 +716,7 @@ No need to download anything — just click the link when it's time. See you the
       <div class="card">
         <div class="card-head"><h3>1-Hour Reminder</h3><span class="badge badge-amber">Sends 1hr before session</span></div>
         <div class="form-grid">
-          <div class="field"><label>Subject line</label><input type="text" value="Your session starts in 1 hour — join link inside"></div>
+          <div class="field"><label>Subject line</label><input type="text" id="email-subj-remind1" value="Your session starts in 1 hour — join link inside"></div>
           <div class="field"><label>Send timing</label><select><option>1 hour before</option><option>30 minutes before</option><option>2 hours before</option></select></div>
           <div class="field form-grid cols1"><label>Body text</label><textarea>Hi {{client_name}},
 
@@ -720,7 +733,7 @@ See you soon.</textarea></div>
       <div class="card">
         <div class="card-head"><h3>Post-Session Follow-up</h3><span class="badge badge-blue">Sends 2hrs after session end</span></div>
         <div class="form-grid">
-          <div class="field"><label>Subject line</label><input type="text" value="Good to see you, {{client_name}} — what's next"></div>
+          <div class="field"><label>Subject line</label><input type="text" id="email-subj-followup" value="Good to see you, {{client_name}} — what's next"></div>
           <div class="field"><label>Send timing</label><select><option>2 hours after</option><option>Same evening</option><option>Next morning</option></select></div>
           <div class="field form-grid cols1"><label>Body text</label><textarea>Hi {{client_name}},
 
@@ -794,10 +807,10 @@ When you're ready to book your next session, you can do so here.</textarea></div
     <p style="font-size:.83rem;color:var(--soft);margin-bottom:1.5rem">This mirrors the availability tool on the main site. Changes here update what clients can book in real time.</p>
     <div id="avail-grid-placeholder" style="display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem">
     </div>
-    <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap">
-      <div class="toggle-row" style="flex:1;min-width:200px"><div class="toggle-info"><h4>Block holiday dates</h4><p>Disable specific calendar dates</p></div><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></div>
+    <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
       <div class="toggle-row" style="flex:1;min-width:200px"><div class="toggle-info"><h4>Buffer between sessions</h4><p>15 min gap after every session</p></div><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
       <div class="toggle-row" style="flex:1;min-width:200px"><div class="toggle-info"><h4>Limit bookings per day</h4><p>Max 5 sessions per calendar day</p></div><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+      <button class="btn btn-primary" onclick="saveAvailability()">Save availability</button>
     </div>
     </div>
   </div>
@@ -1084,228 +1097,407 @@ When you're ready to book your next session, you can do so here.</textarea></div
 </div><!-- /layout -->
 
 <script>
+const API_BASE = '';
+
+// ================================================================
+// AUTH
+// ================================================================
+function getToken() { return sessionStorage.getItem('admin_token'); }
+function setToken(t) { sessionStorage.setItem('admin_token', t); }
+function clearToken() { sessionStorage.removeItem('admin_token'); }
+
+async function apiFetch(path, opts = {}) {
+  const token = getToken();
+  const res = await fetch(API_BASE + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(opts.headers || {})
+    },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (res.status === 401) { clearToken(); showLoginModal(); return null; }
+  return res.ok ? res.json() : Promise.reject(await res.json());
+}
+
+function showLoginModal() {
+  document.getElementById('login-modal').style.display = 'flex';
+}
+function hideLoginModal() {
+  document.getElementById('login-modal').style.display = 'none';
+}
+
+async function submitLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const res = await fetch(API_BASE + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login failed');
+    setToken(data.token);
+    hideLoginModal();
+    initAdmin();
+  } catch(e) {
+    err.textContent = e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Sign in';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-modal').style.display !== 'none') {
+    submitLogin();
+  }
+});
+
+// ================================================================
+// NAV
+// ================================================================
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   event.currentTarget.classList.add('active');
-  // Update topbar if needed
   window.scrollTo(0, 0);
+  if (id === 'clients') renderClientList();
+  if (id === 'bookings') loadBookings();
+  if (id === 'emails') loadEmailSettings();
+  if (id === 'availability') loadAvailability();
 }
+
 function switchEmailTab(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('etab-' + id).classList.add('active');
   event.currentTarget.classList.add('active');
 }
-function saveEmails() {
-  const btn = event.currentTarget;
-  btn.textContent = '✓ Saved';
-  btn.style.background = '#22863a';
-  setTimeout(() => { btn.textContent = 'Save All Templates'; btn.style.background = ''; }, 2000);
-}
-function sendTestEmail() {
-  alert('Test email sent to hello@vikashan.com.au');
-}
 
-// Mobile sidebar
 function toggleSidebar() {
-  const sidebar = document.querySelector('.sidebar');
-  const backdrop = document.getElementById('sidebar-backdrop');
-  sidebar.classList.toggle('open');
-  backdrop.classList.toggle('open');
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('open');
 }
 function closeSidebar() {
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('sidebar-backdrop').classList.remove('open');
 }
-// Close sidebar when nav item clicked on mobile
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', function() {
-    if (window.innerWidth <= 900) closeSidebar();
-  });
+  item.addEventListener('click', () => { if (window.innerWidth <= 900) closeSidebar(); });
 });
 
+// ================================================================
+// DASHBOARD
+// ================================================================
+async function loadDashboard() {
+  const data = await apiFetch('/api/admin/stats');
+  if (!data) return;
 
-// ================================================================
-// CRM DATA & LOGIC
-// ================================================================
-const CLIENTS = [
-  {
-    id: 1, name: 'Priya Mehta', email: 'priya@email.com', phone: '+61 412 345 678',
-    status: 'active', service: 'Career Coaching', sessions: 8, revenue: 1240,
-    lastSession: '3 Jun 2025', nextSession: '9 Jun 2025',
-    tags: ['active','career'],
-    notes: [
-      { text: 'Strong clarity on values. Exploring nonprofit sector transition. Follow up on LinkedIn strategy.', date: '3 Jun 2025, 11:30am' },
-      { text: 'Initial session — career crossroads after 6 years in corporate. Highly motivated.', date: '14 Apr 2025, 10:15am' }
-    ],
-    sessions_list: [
-      { type: 'Career Coaching', date: '3 Jun 2025', amount: '$165' },
-      { type: 'Career Coaching', date: '19 May 2025', amount: '$150' },
-      { type: 'Career Coaching', date: '5 May 2025', amount: '$150' },
-      { type: 'Career Coaching', date: '14 Apr 2025', amount: '$150' }
-    ],
-    color: '#C4724E', initials: 'PM', intake: true
-  },
-  {
-    id: 2, name: 'James Tran', email: 'james@email.com', phone: '+61 423 456 789',
-    status: 'lead', service: 'Discovery Call', sessions: 1, revenue: 0,
-    lastSession: '9 Jun 2025', nextSession: null,
-    tags: ['lead','new'],
-    notes: [
-      { text: 'Discovery call scheduled 9 Jun 2pm. Works in tech, considering shift to impact sector.', date: '7 Jun 2025, 9:00am' }
-    ],
-    sessions_list: [{ type: 'Discovery Call', date: '9 Jun 2025', amount: 'Free' }],
-    color: '#7A9B72', initials: 'JT', intake: false
-  },
-  {
-    id: 3, name: 'Anika Rao', email: 'anika@email.com', phone: '+61 434 567 890',
-    status: 'active', service: 'Psychotherapy', sessions: 5, revenue: 600,
-    lastSession: '28 May 2025', nextSession: '11 Jun 2025',
-    tags: ['active','wellbeing'],
-    notes: [
-      { text: 'Working through nervous system dysregulation patterns. Good progress with ACT exercises. Continue somatic work.', date: '28 May 2025, 12:15pm' }
-    ],
-    sessions_list: [
-      { type: 'Psychotherapy', date: '28 May 2025', amount: '$120' },
-      { type: 'Psychotherapy', date: '14 May 2025', amount: '$120' },
-      { type: 'Psychotherapy', date: '30 Apr 2025', amount: '$120' }
-    ],
-    color: '#96A8FE', initials: 'AR', intake: true
-  },
-  {
-    id: 4, name: 'Daniel Kim', email: 'daniel@email.com', phone: '+61 445 678 901',
-    status: 'concession', service: 'Wellbeing Coaching', sessions: 3, revenue: 280,
-    lastSession: '2 Jun 2025', nextSession: '12 Jun 2025',
-    tags: ['concession','active'],
-    notes: [
-      { text: 'Concession approved at $95/hr. Recently unemployed, job searching. Resilience work is the priority.', date: '2 Jun 2025, 4:00pm' }
-    ],
-    sessions_list: [
-      { type: 'Wellbeing Coaching', date: '2 Jun 2025', amount: '$95' },
-      { type: 'Wellbeing Coaching', date: '19 May 2025', amount: '$95' },
-      { type: 'Discovery Call', date: '5 May 2025', amount: 'Free' }
-    ],
-    color: '#C779DB', initials: 'DK', intake: true
-  },
-  {
-    id: 5, name: 'Sasha Williams', email: 'sasha@email.com', phone: '+61 456 789 012',
-    status: 'active', service: 'Career Coaching', sessions: 12, revenue: 2160,
-    lastSession: '6 Jun 2025', nextSession: '13 Jun 2025',
-    tags: ['active','career','longterm'],
-    notes: [
-      { text: 'Preparing for senior leadership interviews. Strong momentum. Working on executive presence narrative.', date: '6 Jun 2025, 10:30am' },
-      { text: 'Completed values deep-dive. Clarity is high. Transition from gov to private sector confirmed as goal.', date: '10 Mar 2025, 10:00am' }
-    ],
-    sessions_list: [
-      { type: 'Career Coaching', date: '6 Jun 2025', amount: '$185' },
-      { type: 'Career Coaching', date: '23 May 2025', amount: '$185' },
-      { type: 'Career Coaching', date: '9 May 2025', amount: '$180' },
-      { type: 'Career Coaching', date: '25 Apr 2025', amount: '$175' }
-    ],
-    color: '#D4896A', initials: 'SW', intake: true
-  },
-  {
-    id: 6, name: 'Maya Singh', email: 'maya@email.com', phone: '+61 467 890 123',
-    status: 'inactive', service: 'Career Coaching', sessions: 6, revenue: 990,
-    lastSession: '3 Jun 2025', nextSession: null,
-    tags: ['inactive'],
-    notes: [
-      { text: 'Completed coaching package. Left with a solid plan. Check in at 3 months.', date: '3 Jun 2025, 11:00am' }
-    ],
-    sessions_list: [
-      { type: 'Career Coaching', date: '3 Jun 2025', amount: '$165' },
-      { type: 'Career Coaching', date: '20 May 2025', amount: '$165' },
-      { type: 'Career Coaching', date: '6 May 2025', amount: '$165' }
-    ],
-    color: '#888', initials: 'MS', intake: true
+  const revChange = data.lastMonthRevenueCents > 0
+    ? Math.round((data.thisMonthRevenueCents - data.lastMonthRevenueCents) / data.lastMonthRevenueCents * 100)
+    : null;
+
+  document.getElementById('stat-revenue').textContent =
+    '$' + Math.round(data.thisMonthRevenueCents / 100).toLocaleString();
+  const revChangeEl = document.getElementById('stat-revenue-change');
+  revChangeEl.textContent = revChange !== null
+    ? (revChange >= 0 ? '↑ ' : '↓ ') + Math.abs(revChange) + '% vs last month' : '—';
+  revChangeEl.className = 'stat-change ' + (revChange >= 0 ? 'up' : 'down');
+
+  document.getElementById('stat-sessions').textContent = data.thisMonthSessions;
+  document.getElementById('stat-discovery').textContent = data.thisMonthDiscoveryCalls;
+  document.getElementById('stat-subscribers').textContent = data.totalSubscribers;
+
+  const tbody = document.getElementById('dashboard-upcoming-tbody');
+  if (!tbody) return;
+  if (!data.upcomingBookings.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--soft)">No upcoming sessions</td></tr>';
+    return;
   }
-];
+  tbody.innerHTML = data.upcomingBookings.slice(0, 5).map(b => {
+    const dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+    const timeStr = fmtAdminTime(b.start_time);
+    const statusBadge = STATUS_BOOKING_BADGES[b.status] || 'badge-gray';
+    return `<tr>
+      <td>${esc(b.clients?.name || '—')}</td>
+      <td>${esc(b.session_types?.name || '—')}</td>
+      <td>${dateStr}, ${timeStr}</td>
+      <td>${b.amount_cents === 0 ? 'Free' : '$' + Math.round(b.amount_cents / 100)}</td>
+      <td><span class="badge ${statusBadge}">${cap(b.status)}</span></td>
+      <td><button class="btn btn-ghost btn-sm">View</button></td>
+    </tr>`;
+  }).join('');
+}
 
-const STATUS_LABELS = { active: 'Active', lead: 'Lead', inactive: 'Inactive', concession: 'Concession' };
-const STATUS_BADGES = { active: 'badge-green', lead: 'badge-blue', inactive: 'badge-gray', concession: 'badge-amber' };
-const TAG_COLORS = { active: 'badge-green', lead: 'badge-blue', inactive: 'badge-gray', concession: 'badge-amber', career: 'badge-blue', wellbeing: 'badge-green', longterm: 'badge-amber', new: 'badge-gray', default: 'badge-gray' };
+// ================================================================
+// BOOKINGS
+// ================================================================
+const STATUS_BOOKING_BADGES = {
+  confirmed: 'badge-green', pending: 'badge-amber',
+  cancelled: 'badge-red', completed: 'badge-gray', no_show: 'badge-red'
+};
+let bookingStatusFilter = '';
 
+async function loadBookings() {
+  const qs = bookingStatusFilter ? `?status=${bookingStatusFilter}` : '';
+  const data = await apiFetch('/api/admin/bookings' + qs);
+  if (!data) return;
+  const tbody = document.getElementById('bookings-tbody');
+  if (!tbody) return;
+  if (!data.bookings.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--soft)">No bookings found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.bookings.map(b => {
+    const dateStr = new Date(b.date + 'T' + b.start_time).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+    const timeStr = fmtAdminTime(b.start_time);
+    const badge = STATUS_BOOKING_BADGES[b.status] || 'badge-gray';
+    const paidBadge = b.amount_cents === 0 ? 'badge-gray' : (b.stripe_payment_intent_id ? 'badge-green' : 'badge-amber');
+    const paidLabel = b.amount_cents === 0 ? 'N/A' : (b.stripe_payment_intent_id ? 'Paid' : 'Pending');
+    return `<tr>
+      <td>${b.clients?.name || '—'}</td>
+      <td>${b.session_types?.name || '—'}</td>
+      <td>${dateStr}, ${timeStr}</td>
+      <td>${b.duration_mins} min</td>
+      <td>${b.amount_cents === 0 ? 'Free' : '$' + Math.round(b.amount_cents / 100)}</td>
+      <td><span class="badge ${paidBadge}">${paidLabel}</span></td>
+      <td>${b.meet_link ? '<a href="' + b.meet_link + '" target="_blank" style="color:var(--clay);font-size:.73rem">Open →</a>' : '—'}</td>
+      <td><span class="badge ${badge}">${cap(b.status)}</span></td>
+      <td><button class="btn btn-ghost btn-sm">•••</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterBookingStatus(val) {
+  bookingStatusFilter = val;
+  loadBookings();
+}
+
+// ================================================================
+// EMAIL TEMPLATES
+// ================================================================
+async function loadEmailSettings() {
+  const data = await apiFetch('/api/admin/settings');
+  if (!data) return;
+  const s = data.settings;
+  const setVal = (id, key) => {
+    const el = document.getElementById(id);
+    if (el && s[key]) el.value = typeof s[key] === 'string' ? s[key] : JSON.stringify(s[key]).replace(/^"|"$/g, '');
+  };
+  setVal('email-subj-confirm', 'email_confirmation_subject');
+  setVal('email-subj-remind24', 'email_reminder24_subject');
+  setVal('email-subj-remind1', 'email_reminder1_subject');
+  setVal('email-subj-followup', 'email_followup_subject');
+}
+
+async function saveEmails() {
+  const btn = event.currentTarget;
+  const get = id => { const el = document.getElementById(id); return el ? el.value : null; };
+  const updates = {};
+  if (get('email-subj-confirm'))  updates.email_confirmation_subject  = get('email-subj-confirm');
+  if (get('email-subj-remind24')) updates.email_reminder24_subject    = get('email-subj-remind24');
+  if (get('email-subj-remind1'))  updates.email_reminder1_subject     = get('email-subj-remind1');
+  if (get('email-subj-followup')) updates.email_followup_subject      = get('email-subj-followup');
+  try {
+    await apiFetch('/api/admin/settings', { method: 'PUT', body: { updates } });
+    btn.textContent = '✓ Saved'; btn.style.background = '#22863a';
+    setTimeout(() => { btn.textContent = 'Save All Templates'; btn.style.background = ''; }, 2000);
+  } catch(e) {
+    alert('Save failed: ' + e.error);
+  }
+}
+
+function sendTestEmail() {
+  alert('Test email feature — connect to your Resend account and trigger via the API.');
+}
+
+// ================================================================
+// AVAILABILITY
+// ================================================================
+const AVAIL_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const AVAIL_HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
+let currentAvailability = null;
+
+async function loadAvailability() {
+  const data = await apiFetch('/api/admin/availability');
+  if (!data) return;
+  currentAvailability = data.availability;
+  renderAvailGrid(currentAvailability);
+}
+
+function renderAvailGrid(avail) {
+  const container = document.getElementById('avail-grid-placeholder');
+  if (!container) return;
+  container.style.gridTemplateColumns = 'repeat(7, 1fr)';
+  container.innerHTML = '';
+  [1,2,3,4,5,6,0].forEach(dow => {
+    const col = document.createElement('div');
+    col.style.cssText = 'display:flex;flex-direction:column;gap:.3rem';
+    const head = document.createElement('div');
+    head.style.cssText = 'font-size:.7rem;font-weight:600;text-align:center;color:var(--soft);padding:.25rem 0;text-transform:uppercase;letter-spacing:.08em';
+    head.textContent = AVAIL_DAYS[dow].slice(0,3);
+    col.appendChild(head);
+    AVAIL_HOURS.forEach(h => {
+      const on = (avail[dow] || []).includes(h);
+      const btn = document.createElement('button');
+      btn.style.cssText = `padding:.22rem .3rem;border-radius:4px;border:1px solid ${on?'var(--clay)':'var(--border)'};background:${on?'var(--clay)':'transparent'};color:${on?'#fff':'var(--soft)'};font-size:.65rem;cursor:pointer;font-family:inherit;transition:all .15s`;
+      btn.textContent = h < 12 ? h + 'am' : (h === 12 ? '12pm' : (h-12)+'pm');
+      btn.dataset.dow = dow; btn.dataset.hour = h;
+      btn.onclick = function() {
+        const isOn = this.style.background.includes('clay') || this.style.background === 'var(--clay)';
+        if (isOn) {
+          this.style.background = 'transparent'; this.style.color = 'var(--soft)';
+          this.style.borderColor = 'var(--border)';
+        } else {
+          this.style.background = 'var(--clay)'; this.style.color = '#fff';
+          this.style.borderColor = 'var(--clay)';
+        }
+      };
+      col.appendChild(btn);
+    });
+    container.appendChild(col);
+  });
+}
+
+async function saveAvailability() {
+  const avail = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+  document.querySelectorAll('#avail-grid-placeholder button[data-dow]').forEach(btn => {
+    const isOn = btn.style.background === 'var(--clay)' || btn.style.backgroundColor === 'rgb(196, 114, 78)';
+    if (isOn) {
+      const dow = parseInt(btn.dataset.dow);
+      const h = parseInt(btn.dataset.hour);
+      avail[dow].push(h);
+    }
+  });
+  try {
+    await apiFetch('/api/admin/availability', { method: 'PUT', body: { availability: avail } });
+    alert('Availability saved. Changes are live immediately.');
+  } catch(e) {
+    alert('Save failed: ' + (e.error || 'Unknown error'));
+  }
+}
+
+// ================================================================
+// CRM
+// ================================================================
+const STATUS_LABELS  = { active: 'Active', lead: 'Lead', inactive: 'Inactive', concession: 'Concession' };
+const STATUS_BADGES  = { active: 'badge-green', lead: 'badge-blue', inactive: 'badge-gray', concession: 'badge-amber' };
+
+let CLIENTS = [];
 let activeFilter = 'all';
 let searchQuery = '';
 let selectedClientId = null;
 
+async function loadClients() {
+  const qs = activeFilter !== 'all' ? `?status=${activeFilter}` : '';
+  const sq = searchQuery ? (qs ? '&' : '?') + `search=${encodeURIComponent(searchQuery)}` : '';
+  const data = await apiFetch('/api/admin/clients' + qs + sq);
+  if (!data) return;
+  CLIENTS = data.clients;
+  renderClientList();
+  updateFilterCounts();
+}
+
+function updateFilterCounts() {
+  const counts = { all: CLIENTS.length, active: 0, lead: 0, concession: 0, inactive: 0 };
+  CLIENTS.forEach(c => { if (counts[c.status] !== undefined) counts[c.status]++; });
+  Object.entries(counts).forEach(([k, v]) => {
+    const el = document.getElementById('filter-' + k);
+    if (el) el.textContent = cap(k) + (k === 'all' ? '' : '') + ' (' + v + ')';
+  });
+}
+
 function renderClientList() {
   const list = document.getElementById('crm-client-list');
   if (!list) return;
-  const filtered = CLIENTS.filter(c => {
-    const matchFilter = activeFilter === 'all' || c.status === activeFilter;
-    const matchSearch = !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.toLowerCase().includes(searchQuery.toLowerCase()) || c.service.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchFilter && matchSearch;
-  });
-  list.innerHTML = filtered.map(c => `
-    <div class="client-row${selectedClientId===c.id?' active':''}" onclick="selectClient(${c.id})">
-      <div class="client-avatar" style="background:${c.color}">${c.initials}</div>
+  if (!CLIENTS.length) {
+    list.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--soft);font-size:.82rem">No clients found</div>';
+    return;
+  }
+  list.innerHTML = CLIENTS.map(c => {
+    const initials = c.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const color = avatarColor(c.name);
+    const revenue = c.total_revenue_cents > 0 ? '$' + Math.round(c.total_revenue_cents / 100).toLocaleString() : 'Free';
+    return `<div class="client-row${selectedClientId===c.id?' active':''}" onclick="selectClient('${c.id}')">
+      <div class="client-avatar" style="background:${color}">${initials}</div>
       <div class="client-row-info">
-        <div class="client-row-name">${c.name}</div>
-        <div class="client-row-sub">${c.service} · <span class="badge ${STATUS_BADGES[c.status]}" style="font-size:.63rem">${STATUS_LABELS[c.status]}</span></div>
+        <div class="client-row-name">${esc(c.name)}</div>
+        <div class="client-row-sub">${esc(c.primary_service || 'No service')} · <span class="badge ${STATUS_BADGES[c.status]}" style="font-size:.63rem">${STATUS_LABELS[c.status]}</span></div>
       </div>
       <div class="client-row-meta">
-        <div class="revenue">${c.revenue > 0 ? '$'+c.revenue.toLocaleString() : 'Free'}</div>
-        <div class="sessions">${c.sessions} session${c.sessions!==1?'s':''}</div>
+        <div class="revenue">${revenue}</div>
+        <div class="sessions">${c.session_count} session${c.session_count!==1?'s':''}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function selectClient(id) {
+async function selectClient(id) {
   selectedClientId = id;
+  renderClientList();
   const c = CLIENTS.find(x => x.id === id);
   if (!c) return;
-  renderClientList();
   const panel = document.getElementById('crm-detail-panel');
-  if (!c) { panel.innerHTML = '<div class="crm-detail-empty"><div class="empty-icon">👤</div><p>Select a client to view details</p></div>'; return; }
-  const tagBadges = c.tags.map(t => `<span class="client-tag ${TAG_COLORS[t]||'badge-gray'}">${t}</span>`).join('');
-  const sessionRows = c.sessions_list.map(s => `
+  panel.innerHTML = '<div class="crm-detail-empty" style="padding:2rem;color:var(--soft)">Loading…</div>';
+  if (window.innerWidth <= 900) panel.classList.add('open');
+
+  const notesData = await apiFetch(`/api/admin/clients/${id}/notes`);
+  const notes = notesData?.notes || [];
+
+  const initials = c.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  const color = avatarColor(c.name);
+  const sessionRows = (c.bookings || []).slice(0,8).map(b => `
     <div class="session-item">
-      <div><div class="session-item-name">${s.type}</div><div class="session-item-date">${s.date}</div></div>
-      <span class="badge ${s.amount==='Free'?'badge-gray':'badge-green'}">${s.amount === 'Free' ? 'Free' : 'Paid'}</span>
-      <div class="session-item-amount">${s.amount}</div>
-    </div>`).join('');
-  const noteItems = c.notes.map(n => `
-    <div class="note-item">
-      <div class="note-text">${n.text}</div>
-      <div class="note-meta">${n.date}</div>
-    </div>`).join('');
+      <div>
+        <div class="session-item-name">${fmtAdminDate(b.date)}</div>
+        <div class="session-item-date">${b.status}</div>
+      </div>
+      <span class="badge ${b.amount_cents === 0 ? 'badge-gray' : 'badge-green'}">${b.amount_cents === 0 ? 'Free' : 'Paid'}</span>
+      <div class="session-item-amount">${b.amount_cents === 0 ? 'Free' : '$' + Math.round(b.amount_cents/100)}</div>
+    </div>`).join('') || '<div style="color:var(--soft);font-size:.78rem">No sessions yet</div>';
+
+  const noteItems = notes.map(n => `
+    <div class="note-item" id="note-${n.id}">
+      <div class="note-text">${esc(n.note_text)}</div>
+      <div class="note-meta" style="display:flex;justify-content:space-between">
+        <span>${fmtAdminDateTime(n.created_at)}</span>
+        <button onclick="deleteNote('${id}','${n.id}')" style="background:none;border:none;color:var(--soft);cursor:pointer;font-size:.7rem;padding:0">Delete</button>
+      </div>
+    </div>`).join('') || '<div style="color:var(--soft);font-size:.78rem;padding:.5rem 0">No notes yet</div>';
+
   panel.innerHTML = `
     <div class="detail-header">
       <button class="btn btn-ghost btn-sm crm-detail-close" onclick="closeCrmDetail()" style="margin-bottom:.75rem">← Back</button>
       <div class="detail-avatar-row">
-        <div class="detail-avatar" style="background:${c.color}">${c.initials}</div>
+        <div class="detail-avatar" style="background:${color}">${initials}</div>
         <div>
-          <div class="detail-name">${c.name}</div>
-          <div class="detail-sub">${c.email} · ${c.phone}</div>
-          <div style="margin-top:.35rem"><span class="badge ${STATUS_BADGES[c.status]}">${STATUS_LABELS[c.status]}</span>${!c.intake?'&nbsp;<span class="badge badge-amber">No intake form</span>':''}</div>
+          <div class="detail-name">${esc(c.name)}</div>
+          <div class="detail-sub">${esc(c.email)}${c.phone ? ' · ' + esc(c.phone) : ''}</div>
+          <div style="margin-top:.35rem"><span class="badge ${STATUS_BADGES[c.status]}">${STATUS_LABELS[c.status]}</span></div>
         </div>
       </div>
       <div class="detail-actions">
-        <button class="btn btn-primary btn-sm" onclick="openBooking()">+ Book session</button>
         <button class="btn btn-ghost btn-sm">Send email</button>
-        <button class="btn btn-ghost btn-sm">Edit</button>
       </div>
     </div>
     <div class="detail-stats">
-      <div class="d-stat"><div class="d-stat-val">${c.sessions}</div><div class="d-stat-label">Sessions</div></div>
-      <div class="d-stat"><div class="d-stat-val">${c.revenue>0?'$'+c.revenue.toLocaleString():'–'}</div><div class="d-stat-label">Revenue</div></div>
-      <div class="d-stat"><div class="d-stat-val">${c.nextSession?'Soon':'–'}</div><div class="d-stat-label">Next session</div></div>
+      <div class="d-stat"><div class="d-stat-val">${c.session_count}</div><div class="d-stat-label">Sessions</div></div>
+      <div class="d-stat"><div class="d-stat-val">${c.total_revenue_cents > 0 ? '$' + Math.round(c.total_revenue_cents/100).toLocaleString() : '–'}</div><div class="d-stat-label">Revenue</div></div>
+      <div class="d-stat"><div class="d-stat-val">${c.last_session_date ? fmtAdminDate(c.last_session_date) : '–'}</div><div class="d-stat-label">Last session</div></div>
     </div>
     <div class="detail-section">
       <h4>Contact</h4>
-      <div class="detail-field-row"><span>Email</span><a href="mailto:${c.email}">${c.email}</a></div>
-      <div class="detail-field-row"><span>Phone</span><span>${c.phone}</span></div>
-      <div class="detail-field-row"><span>Primary service</span><span>${c.service}</span></div>
-      <div class="detail-field-row"><span>Last session</span><span>${c.lastSession||'–'}</span></div>
-      <div class="detail-field-row"><span>Next session</span><span>${c.nextSession||'None scheduled'}</span></div>
-      <div class="detail-field-row"><span>Intake form</span><span>${c.intake?'<span class="badge badge-green">Signed</span>':'<span class="badge badge-amber">Not sent</span>'}</span></div>
-    </div>
-    <div class="detail-section">
-      <h4>Tags</h4>
-      <div class="tag-row">${tagBadges}</div>
+      <div class="detail-field-row"><span>Email</span><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>
+      <div class="detail-field-row"><span>Phone</span><span>${esc(c.phone || '—')}</span></div>
+      <div class="detail-field-row"><span>Primary service</span><span>${esc(c.primary_service || '—')}</span></div>
+      <div class="detail-field-row"><span>Mailing list</span><span>${c.mailing_opt_in ? '<span class="badge badge-green">Opted in</span>' : '<span class="badge badge-gray">No</span>'}</span></div>
+      <div class="detail-field-row"><span>Intake signed</span><span>${c.intake_signed ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-amber">No</span>'}</span></div>
     </div>
     <div class="detail-section">
       <h4>Session History</h4>
@@ -1314,14 +1506,12 @@ function selectClient(id) {
     <div class="detail-section">
       <h4>Practitioner Notes</h4>
       <p style="font-size:.7rem;color:var(--soft);margin-bottom:.65rem">⚠ Admin notes only — not for clinical session records</p>
-      ${noteItems}
-      <div class="note-input-row">
-        <textarea id="note-input-${c.id}" placeholder="Add a note..."></textarea>
-        <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="addNote(${c.id})">Add</button>
+      <div id="notes-list-${id}">${noteItems}</div>
+      <div class="note-input-row" style="margin-top:.75rem">
+        <textarea id="note-input-${id}" placeholder="Add a note..."></textarea>
+        <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="addNote('${id}')">Add</button>
       </div>
     </div>`;
-  // On mobile, open panel
-  if (window.innerWidth <= 900) panel.classList.add('open');
 }
 
 function closeCrmDetail() {
@@ -1330,31 +1520,87 @@ function closeCrmDetail() {
   renderClientList();
 }
 
-function addNote(clientId) {
+async function addNote(clientId) {
   const input = document.getElementById('note-input-' + clientId);
   if (!input || !input.value.trim()) return;
-  const c = CLIENTS.find(x => x.id === clientId);
-  if (!c) return;
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'}) + ', ' + now.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'});
-  c.notes.unshift({ text: input.value.trim(), date: dateStr });
-  selectClient(clientId);
+  const btn = input.nextElementSibling;
+  btn.disabled = true;
+  try {
+    await apiFetch(`/api/admin/clients/${clientId}/notes`, {
+      method: 'POST', body: { note_text: input.value.trim() }
+    });
+    await selectClient(clientId);
+  } catch(e) {
+    alert('Failed to add note');
+    btn.disabled = false;
+  }
+}
+
+async function deleteNote(clientId, noteId) {
+  if (!confirm('Delete this note?')) return;
+  try {
+    await apiFetch(`/api/admin/clients/${clientId}/notes?noteId=${noteId}`, { method: 'DELETE' });
+    document.getElementById('note-' + noteId)?.remove();
+  } catch(e) {
+    alert('Failed to delete note');
+  }
 }
 
 function setCRMFilter(filter) {
   activeFilter = filter;
   document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
   document.getElementById('filter-' + filter).classList.add('active');
-  renderClientList();
+  loadClients();
 }
 
 function crmSearch(q) {
   searchQuery = q;
-  renderClientList();
+  loadClients();
 }
 
-// Init CRM on load
-document.addEventListener("DOMContentLoaded", renderClientList);
+// ================================================================
+// HELPERS
+// ================================================================
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function avatarColor(name) {
+  const colors = ['#C4724E','#7A9B72','#96A8FE','#C779DB','#D4896A','#5B8DB8','#888'];
+  let h = 0; for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return colors[Math.abs(h) % colors.length];
+}
+function fmtAdminDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return parseInt(day) + ' ' + months[parseInt(m)-1] + ' ' + y;
+}
+function fmtAdminDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'}) + ', ' +
+    d.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'});
+}
+function fmtAdminTime(t) {
+  if (!t) return '—';
+  const [h,m] = t.split(':');
+  const hour = parseInt(h);
+  return (hour % 12 || 12) + ':' + m + ' ' + (hour >= 12 ? 'pm' : 'am');
+}
+
+// ================================================================
+// INIT
+// ================================================================
+async function initAdmin() {
+  await Promise.all([loadDashboard(), loadClients()]);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!getToken()) {
+    showLoginModal();
+  } else {
+    initAdmin();
+  }
+});
 </script>
 </body>
 </html>

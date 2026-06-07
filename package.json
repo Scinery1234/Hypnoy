@@ -1,0 +1,19 @@
+{
+  "name": "vikashan-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "generate-hash": "node -e \"import('bcryptjs').then(b=>b.default.hash(process.argv[1],12)).then(console.log)\" --"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2",
+    "stripe": "^14",
+    "resend": "^3",
+    "jsonwebtoken": "^9",
+    "bcryptjs": "^2"
+  },
+  "devDependencies": {
+    "vercel": "latest"
+  }
+}
