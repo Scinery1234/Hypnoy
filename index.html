@@ -796,7 +796,7 @@ footer{background:#1C1411;color:rgba(255,255,255,.4);padding:3.5rem 2.5rem 2rem}
   </div>
   <div class="avail-body">
     <h2 style="font-family:var(--serif);font-weight:400;font-size:1.3rem;margin-bottom:.4rem;color:var(--ink)">Weekly Availability</h2>
-    <p style="font-size:.84rem;color:var(--ink-soft);font-weight:300;margin-bottom:2rem">Toggle the hours you're available each week. Saves to this browser and reflects in the booking calendar.</p>
+    <p style="font-size:.84rem;color:var(--ink-soft);font-weight:300;margin-bottom:2rem">Toggle the hours you're available each week. Changes save to the database and apply to all booking pages.</p>
     <div id="avail-days"></div>
     <div style="display:flex;align-items:center;gap:1rem;margin-top:1rem">
       <button class="avail-save" onclick="saveAvailAdmin()">Save availability</button>
@@ -1457,17 +1457,21 @@ function switchTab(id) {
   event.currentTarget.classList.add('active');
 }
 
-// Availability panel (admin inline tool — still uses localStorage for quick edits)
+// Availability panel (admin inline tool — saves to Supabase via API)
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const HOURS = [8,9,10,11,12,13,14,15,16,17,18,19];
 
-function getAvail() {
-  try { const s = localStorage.getItem('vik_avail'); return s ? JSON.parse(s) : DEFAULT_AVAIL; } catch { return DEFAULT_AVAIL; }
-}
-
-function renderAvailAdmin() {
-  const avail = getAvail();
-  const c = document.getElementById('avail-days'); c.innerHTML = '';
+async function renderAvailAdmin() {
+  const c = document.getElementById('avail-days');
+  c.innerHTML = '<p style="color:var(--ink-soft);font-size:.85rem;padding:.5rem 0">Loading…</p>';
+  let avail = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+  try {
+    const token = localStorage.getItem('vik_admin_token');
+    const r = await fetch('/api/admin/availability', { headers: { Authorization: 'Bearer ' + token } });
+    const data = await r.json();
+    if (data.availability) avail = data.availability;
+  } catch(e) {}
+  c.innerHTML = '';
   [1,2,3,4,5,6,0].forEach(dow => {
     const wrap = document.createElement('div'); wrap.className = 'avail-day';
     const head = document.createElement('div'); head.className = 'avail-day-head';
@@ -1493,16 +1497,26 @@ function toggleAllDay(dow) {
   btns.forEach(b => anyOn ? b.classList.remove('on') : b.classList.add('on'));
 }
 
-function saveAvailAdmin() {
+async function saveAvailAdmin() {
   const avail = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
   document.querySelectorAll('.hour-btn.on').forEach(btn => {
     const dow = parseInt(btn.dataset.dow), h = parseInt(btn.dataset.hour);
     if (!avail[dow].includes(h)) avail[dow].push(h);
   });
   Object.keys(avail).forEach(k => avail[k].sort((a,b) => a-b));
-  localStorage.setItem('vik_avail', JSON.stringify(avail));
+  const token = localStorage.getItem('vik_admin_token');
+  const r = await fetch('/api/admin/availability', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ availability: avail })
+  });
   const msg = document.getElementById('avail-saved');
-  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2500);
+  if (r.ok) {
+    msg.textContent = '✓ Saved'; msg.style.color = '';
+  } else {
+    msg.textContent = '✗ Error saving'; msg.style.color = 'red';
+  }
+  msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 3000);
 }
 
 function openAvail() { document.getElementById('avail-panel').classList.add('open'); renderAvailAdmin(); }
