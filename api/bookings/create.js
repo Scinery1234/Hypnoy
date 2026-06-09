@@ -3,6 +3,7 @@ import { sendConfirmation } from '../../lib/resend.js'
 import { createOutlookEvent } from '../../lib/outlook.js'
 import { createGoogleCalendarEvent } from '../../lib/google-calendar.js'
 import Stripe from 'stripe'
+import { rateLimit, isBot, sanitiseObject } from '../../lib/security.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -10,11 +11,15 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).end()
 
+  if (!rateLimit(req, res, { max: 10, windowMs: 60 * 60 * 1000, key: 'booking-create' })) return
+  if (isBot(req.body)) return res.status(400).json({ error: 'Invalid request' })
+
+  const body = sanitiseObject(req.body)
   const {
     clientName, clientEmail, clientPhone,
     date, time, sessionTypeId,
     tier, amountCents, notes, mailingOptIn
-  } = req.body
+  } = body
 
   if (!clientName || !clientEmail || !date || !time || !sessionTypeId) {
     return res.status(400).json({ error: 'Missing required fields' })

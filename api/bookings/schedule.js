@@ -2,15 +2,19 @@ import { supabase } from '../../lib/supabase.js'
 import { sendConfirmation } from '../../lib/resend.js'
 import { createOutlookEvent } from '../../lib/outlook.js'
 import { createGoogleCalendarEvent } from '../../lib/google-calendar.js'
+import { rateLimit, sanitiseObject } from '../../lib/security.js'
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).end()
 
+  if (!rateLimit(req, res, { max: 10, windowMs: 60 * 60 * 1000, key: 'booking-schedule' })) return
+
+  const body = sanitiseObject(req.body)
   const {
     clientName, clientEmail, sessionTypeId, sessionName,
     durationMins, date, time, notes, packageId, recurDates
-  } = req.body
+  } = body
 
   if (!clientName || !clientEmail || !sessionTypeId || !date || !time) {
     return res.status(400).json({ error: 'Missing required fields' })

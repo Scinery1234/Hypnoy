@@ -1050,6 +1050,7 @@ footer{background:#1C1411;color:rgba(255,255,255,.4);padding:3.5rem 2.5rem 2rem}
       </div>
       <div>
         <div class="cf-wrap" id="contact-form">
+          <input type="text" id="cf-hp" name="_hp" autocomplete="off" style="display:none" tabindex="-1">
           <div class="form-row-2">
             <div class="field"><label>First name</label><input type="text" id="cf-fname" placeholder="Your name"></div>
             <div class="field"><label>Last name</label><input type="text" id="cf-lname"></div>
@@ -1196,6 +1197,7 @@ footer{background:#1C1411;color:rgba(255,255,255,.4);padding:3.5rem 2.5rem 2rem}
 
     <div class="step-panel" id="step2">
       <span class="step-label">Your details</span>
+      <input type="text" id="b-hp" name="_hp" autocomplete="off" style="display:none" tabindex="-1">
       <div class="form-row-2" style="gap:.75rem;margin-bottom:.75rem">
         <div class="field"><label>First name</label><input type="text" id="b-fname" placeholder="Your name"></div>
         <div class="field"><label>Last name</label><input type="text" id="b-lname"></div>
@@ -1809,7 +1811,8 @@ async function submitBooking() {
         tier: B.tier === 'concession' ? 'concession' : B.tier === 'sustaining' ? 'full_rate' : 'accessible',
         amountCents: 0,
         notes: B.notes || null,
-        mailingOptIn: B.mailingOptIn
+        mailingOptIn: B.mailingOptIn,
+        _hp: document.getElementById('b-hp')?.value || ''
       })
     });
 
@@ -1891,7 +1894,8 @@ async function submitContact() {
         name: (fname + ' ' + lname).trim(),
         email,
         service,
-        message
+        message,
+        _hp: document.getElementById('cf-hp')?.value || ''
       })
     });
     if (!r.ok) throw new Error('Send failed');
