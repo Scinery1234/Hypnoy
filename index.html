@@ -1172,6 +1172,10 @@ footer{background:#1C1411;color:rgba(255,255,255,.4);padding:3.5rem 2.5rem 2rem}
         <h4>Career &amp; Wellness Coaching — Discovery Call</h4>
         <p>A free 20-minute conversation to explore where you are and which services make sense for you — therapeutic support, career readiness, discovery work, or a combination. We&#39;ll figure it out together.</p>
       </div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem">
+        <label style="font-size:.75rem;color:var(--ink-soft);white-space:nowrap">Times in:</label>
+        <select id="fc-tz-select" onchange="onFcTzChange()" style="flex:1;padding:.4rem .6rem;border:1.5px solid var(--border);border-radius:6px;font-size:.78rem;color:var(--ink)"></select>
+      </div>
       <div class="cal-wrap">
         <div class="cal-nav">
           <button class="cal-btn" onclick="prevMonth()">← Prev</button>
@@ -1525,11 +1529,116 @@ function closeAvail() { document.getElementById('avail-panel').classList.remove(
 // ================================================================
 // BOOKING
 // ================================================================
+
+// ── Timezone ─────────────────────────────────────────────────────
+const FC_TZ_LIST = [
+  { g: 'Australia & NZ', zones: [
+    { l: 'Sydney / Melbourne (AEST/AEDT)',  v: 'Australia/Sydney' },
+    { l: 'Brisbane (AEST, no DST)',          v: 'Australia/Brisbane' },
+    { l: 'Adelaide (ACST/ACDT)',             v: 'Australia/Adelaide' },
+    { l: 'Perth (AWST)',                     v: 'Australia/Perth' },
+    { l: 'Darwin (ACST)',                    v: 'Australia/Darwin' },
+    { l: 'Auckland (NZST/NZDT)',             v: 'Pacific/Auckland' },
+  ]},
+  { g: 'Asia & Pacific', zones: [
+    { l: 'Mumbai / Delhi / Kolkata (IST)',   v: 'Asia/Kolkata' },
+    { l: 'Singapore / Kuala Lumpur (SGT)',   v: 'Asia/Singapore' },
+    { l: 'Hong Kong (HKT)',                  v: 'Asia/Hong_Kong' },
+    { l: 'Tokyo (JST)',                      v: 'Asia/Tokyo' },
+    { l: 'Bangkok (ICT)',                    v: 'Asia/Bangkok' },
+    { l: 'Jakarta (WIB)',                    v: 'Asia/Jakarta' },
+    { l: 'Dubai (GST)',                      v: 'Asia/Dubai' },
+    { l: 'Karachi (PKT)',                    v: 'Asia/Karachi' },
+    { l: 'Dhaka (BST)',                      v: 'Asia/Dhaka' },
+    { l: 'Colombo (SLST)',                   v: 'Asia/Colombo' },
+    { l: 'Manila (PHT)',                     v: 'Asia/Manila' },
+    { l: 'Seoul (KST)',                      v: 'Asia/Seoul' },
+    { l: 'Taipei (CST)',                     v: 'Asia/Taipei' },
+    { l: 'Honolulu (HST)',                   v: 'Pacific/Honolulu' },
+    { l: 'Fiji (FJT)',                       v: 'Pacific/Fiji' },
+  ]},
+  { g: 'Europe & Africa', zones: [
+    { l: 'London (GMT/BST)',                 v: 'Europe/London' },
+    { l: 'Paris / Berlin / Rome (CET/CEST)', v: 'Europe/Paris' },
+    { l: 'Athens / Helsinki (EET/EEST)',     v: 'Europe/Athens' },
+    { l: 'Moscow (MSK)',                     v: 'Europe/Moscow' },
+    { l: 'Nairobi (EAT)',                    v: 'Africa/Nairobi' },
+    { l: 'Lagos / Accra (WAT/GMT)',          v: 'Africa/Lagos' },
+    { l: 'Johannesburg (SAST)',              v: 'Africa/Johannesburg' },
+    { l: 'Cairo (EET)',                      v: 'Africa/Cairo' },
+  ]},
+  { g: 'Americas', zones: [
+    { l: 'New York / Toronto (EST/EDT)',     v: 'America/New_York' },
+    { l: 'Chicago (CST/CDT)',                v: 'America/Chicago' },
+    { l: 'Denver (MST/MDT)',                 v: 'America/Denver' },
+    { l: 'Los Angeles / Vancouver (PST/PDT)',v: 'America/Los_Angeles' },
+    { l: 'Phoenix (MST, no DST)',            v: 'America/Phoenix' },
+    { l: 'Anchorage (AKST/AKDT)',            v: 'America/Anchorage' },
+    { l: 'São Paulo (BRT/BRST)',             v: 'America/Sao_Paulo' },
+    { l: 'Mexico City (CST/CDT)',            v: 'America/Mexico_City' },
+  ]},
+  { g: 'Other', zones: [{ l: 'UTC', v: 'UTC' }]},
+]
+let fcSelectedTz = 'Australia/Sydney'
+
+function initFcTzSelect() {
+  const sel = document.getElementById('fc-tz-select')
+  if (!sel) return
+  sel.innerHTML = FC_TZ_LIST.map(g =>
+    `<optgroup label="${g.g}">${g.zones.map(z =>
+      `<option value="${z.v}"${z.v === fcSelectedTz ? ' selected' : ''}>${z.l}</option>`
+    ).join('')}</optgroup>`
+  ).join('')
+}
+
+function onFcTzChange() {
+  fcSelectedTz = document.getElementById('fc-tz-select').value
+  if (_fcLastSlots.length && _fcLastDate) renderFcSlots(_fcLastSlots, _fcLastDate)
+}
+
+function fcSydneyToDate(dateStr, sydneyHour) {
+  const d = new Date(`${dateStr}T${String(sydneyHour).padStart(2,'0')}:00:00+10:00`)
+  const actual = parseInt(new Intl.DateTimeFormat('en', {
+    timeZone: 'Australia/Sydney', hour: 'numeric', hour12: false
+  }).format(d))
+  return actual === sydneyHour ? d : new Date(d.getTime() + (sydneyHour - actual) * 3600000)
+}
+
+function fcSlotLabel(dateStr, sydneyHour) {
+  if (fcSelectedTz === 'Australia/Sydney') {
+    const h = sydneyHour, ampm = h >= 12 ? 'pm' : 'am', h12 = h > 12 ? h - 12 : h === 0 ? 12 : h
+    return `${h12}:00${ampm}`
+  }
+  return new Intl.DateTimeFormat('en-AU', {
+    timeZone: fcSelectedTz, hour: 'numeric', minute: '2-digit', hour12: true
+  }).format(fcSydneyToDate(dateStr, sydneyHour)).toLowerCase().replace(' ', '')
+}
+
+let _fcLastSlots = [], _fcLastDate = null
+function renderFcSlots(slots, dateStr) {
+  _fcLastSlots = slots; _fcLastDate = dateStr
+  const grid = document.getElementById('slots-grid')
+  if (!grid) return
+  grid.innerHTML = ''
+  if (!slots.length) {
+    grid.innerHTML = '<span class="no-slots">No times available this day.</span>'
+    return
+  }
+  slots.forEach(s => {
+    const slotEl = document.createElement('div')
+    slotEl.className = 'time-slot'
+    slotEl.textContent = fcSlotLabel(dateStr, s.hour)
+    slotEl.onclick = () => selectTime(s.hour, fcSlotLabel(dateStr, s.hour), slotEl)
+    grid.appendChild(slotEl)
+  })
+}
+
 const B = {date:null,time:null,timeStr:'',timeLabel:'',tier:'sustaining',fname:'',lname:'',email:'',phone:'',notes:'',mailingOptIn:true};
 let calY = new Date().getFullYear(), calM = new Date().getMonth();
 
 function openBooking() {
   document.getElementById('booking-overlay').classList.add('open');
+  initFcTzSelect();
   goStep(1); renderCal();
 }
 function closeBooking() { document.getElementById('booking-overlay').classList.remove('open'); }
@@ -1594,17 +1703,7 @@ async function selectDate(ds, el) {
     document.getElementById('slots-label').textContent =
       'Available times · ' + parseInt(parts[2]) + ' ' + months[parseInt(parts[1])-1];
     grid.innerHTML = '';
-    if (!slots || !slots.length) {
-      grid.innerHTML = '<span class="no-slots">No times available this day.</span>';
-    } else {
-      slots.forEach(s => {
-        const slotEl = document.createElement('div');
-        slotEl.className = 'time-slot';
-        slotEl.textContent = s.label;
-        slotEl.onclick = () => selectTime(s.hour, s.label, slotEl);
-        grid.appendChild(slotEl);
-      });
-    }
+    renderFcSlots(slots || [], ds);
   } catch(e) {
     grid.innerHTML = '<span class="no-slots">Could not load times. Please try again.</span>';
   }
