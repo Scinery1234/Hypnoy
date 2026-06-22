@@ -1,4 +1,25 @@
-.env.local
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Local env / secrets
+*.local
 .env
-node_modules/
-.vercel/
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
