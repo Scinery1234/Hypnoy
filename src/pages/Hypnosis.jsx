@@ -1,27 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { generateHypnosisScript } from '@/api/hypnosis';
 
-// Tuned for a slow, low, hypnotic delivery.
-const DEFAULT_RATE = 0.72;
-const VOICE_PITCH = 0.88;
-
 const DURATIONS = [5, 10, 20];
 const TONES = [
   { value: 'gentle', label: 'Gentle' },
   { value: 'authoritative', label: 'Authoritative' },
   { value: 'warm', label: 'Warm' },
 ];
-
-const speechSupported =
-  typeof window !== 'undefined' && 'speechSynthesis' in window;
-
-// Estimate spoken time so we can show a duration and drive the progress bar.
-function estimateSegmentMs(text, rate) {
-  const words = text.trim().split(/\s+/).filter(Boolean).length;
-  // ~110 wpm at rate 1.0 for slow delivery; scales inversely with rate.
-  const wordsPerMs = (110 / 60 / 1000) * rate;
-  return words / Math.max(wordsPerMs, 0.0001);
-}
+const VOICES = [
+  { value: 'nova', label: 'Nova', desc: 'Warm & clear' },
+  { value: 'shimmer', label: 'Shimmer', desc: 'Soft & soothing' },
+  { value: 'alloy', label: 'Alloy', desc: 'Neutral & calm' },
+  { value: 'echo', label: 'Echo', desc: 'Deep & smooth' },
+  { value: 'fable', label: 'Fable', desc: 'Expressive' },
+  { value: 'onyx', label: 'Onyx', desc: 'Rich & grounded' },
+];
 
 function formatClock(ms) {
   const totalSeconds = Math.round(ms / 1000);
@@ -34,30 +27,31 @@ export default function Hypnosis() {
   const [prompt, setPrompt] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(10);
   const [tone, setTone] = useState('gentle');
+  const [selectedVoice, setSelectedVoice] = useState('nova');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [script, setScript] = useState(null);
 
-  const [voices, setVoices] = useState([]);
-  const [voiceURI, setVoiceURI] = useState('');
-  const [rate, setRate] = useState(DEFAULT_RATE);
-
-  const [status, setStatus] = useState('idle'); // idle | playing | paused | finished
+  const [status, setStatus] = useState('idle'); // idle | loading-audio | playing | paused | finished
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  // Playback state kept in refs so async callbacks never read stale values.
+  // Refs for playback coordination
+  const playIdRef = useRef(0);
   const indexRef = useRef(0);
-  const pausedRef = useRef(false);
+  const currentAudioRef = useRef(null);
   const gapTimerRef = useRef(null);
   const gapRemainingRef = useRef(0);
   const gapStartedAtRef = useRef(0);
-  const rateRef = useRef(rate);
-  const voiceRef = useRef(null);
-  // Bumped on every stop/play so stale utterance callbacks can be ignored.
-  const playIdRef = useRef(0);
+  const pausedInGapRef = useRef(false);
+  // Cache: index -> blob URL (persists across pause/resume, cleared on new script/voice)
+  const audioCacheRef = useRef({});
+  const selectedVoiceRef = useRef(selectedVoice);
 
-  // Flatten phases into a single ordered list of segments with phase metadata.
+  useEffect(() => {
+    selectedVoiceRef.current = selectedVoice;
+  }, [selectedVoice]);
+
   const segments = useMemo(() => {
     if (!script?.phases) return [];
     const flat = [];
@@ -74,44 +68,38 @@ export default function Hypnosis() {
     return flat;
   }, [script]);
 
-  const estimatedTotalMs = useMemo(() => {
-    return segments.reduce(
-      (acc, s) => acc + estimateSegmentMs(s.text, rate) + s.pauseAfterMs,
-      0
-    );
-  }, [segments, rate]);
-
-  // --- Voice loading -------------------------------------------------------
-  useEffect(() => {
-    if (!speechSupported) return undefined;
-
-    const loadVoices = () => {
-      const list = window.speechSynthesis.getVoices();
-      if (!list.length) return;
-      setVoices(list);
-      setVoiceURI((current) => {
-        if (current && list.some((v) => v.voiceURI === current)) return current;
-        // Prefer an English voice; nudge toward calmer-sounding defaults.
-        const preferred =
-          list.find((v) => /en[-_]GB/i.test(v.lang) && /female|samantha|sonia|libby/i.test(v.name)) ||
-          list.find((v) => /^en/i.test(v.lang)) ||
-          list[0];
-        return preferred?.voiceURI || '';
-      });
-    };
-
-    loadVoices();
-    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+  // Clear audio cache and revoke blob URLs
+  const clearAudioCache = useCallback(() => {
+    Object.values(audioCacheRef.current).forEach((url) => {
+      if (typeof url === 'string') URL.revokeObjectURL(url);
+    });
+    audioCacheRef.current = {};
   }, []);
 
+  // Clear on new script or voice change
   useEffect(() => {
-    rateRef.current = rate;
-  }, [rate]);
+    clearAudioCache();
+  }, [script, selectedVoice, clearAudioCache]);
 
   useEffect(() => {
-    voiceRef.current = voices.find((v) => v.voiceURI === voiceURI) || null;
-  }, [voiceURI, voices]);
+    return () => clearAudioCache();
+  }, [clearAudioCache]);
+
+  const fetchSegmentAudio = useCallback(async (index) => {
+    if (audioCacheRef.current[index]) return audioCacheRef.current[index];
+    const seg = segments[index];
+    if (!seg) return null;
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: seg.text, voice: selectedVoiceRef.current }),
+    });
+    if (!res.ok) throw new Error('TTS fetch failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    audioCacheRef.current[index] = url;
+    return url;
+  }, [segments]);
 
   const clearGapTimer = useCallback(() => {
     if (gapTimerRef.current) {
@@ -121,96 +109,127 @@ export default function Hypnosis() {
   }, []);
 
   const stopPlayback = useCallback(() => {
-    playIdRef.current += 1; // invalidate any in-flight utterance callbacks
+    playIdRef.current += 1;
     clearGapTimer();
-    pausedRef.current = false;
+    pausedInGapRef.current = false;
     gapRemainingRef.current = 0;
-    if (speechSupported) window.speechSynthesis.cancel();
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
     setStatus('idle');
     setActiveIndex(-1);
     indexRef.current = 0;
   }, [clearGapTimer]);
 
-  // Speak segment at `i`, then hold its pause, then advance.
-  const speakFrom = useCallback(
-    (i) => {
-      const myPlay = playIdRef.current;
-      if (i >= segments.length) {
-        setStatus('finished');
-        setActiveIndex(-1);
-        indexRef.current = 0;
-        return;
-      }
-      indexRef.current = i;
-      setActiveIndex(i);
+  const speakFrom = useCallback(async (i) => {
+    const myPlay = playIdRef.current;
+    if (i >= segments.length) {
+      setStatus('finished');
+      setActiveIndex(-1);
+      indexRef.current = 0;
+      return;
+    }
 
-      const seg = segments[i];
-      const utterance = new SpeechSynthesisUtterance(seg.text);
-      utterance.rate = rateRef.current;
-      utterance.pitch = VOICE_PITCH;
-      utterance.volume = 1;
-      if (voiceRef.current) {
-        utterance.voice = voiceRef.current;
-        utterance.lang = voiceRef.current.lang;
-      }
+    indexRef.current = i;
+    setActiveIndex(i);
 
-      const startGap = () => {
-        if (myPlay !== playIdRef.current) return; // superseded by stop/replay
-        gapRemainingRef.current = seg.pauseAfterMs;
-        if (pausedRef.current) return; // resume will restart the gap
+    // Prefetch next 3 segments silently in background
+    for (let j = i + 1; j <= i + 3 && j < segments.length; j++) {
+      fetchSegmentAudio(j).catch(() => {});
+    }
+
+    let url;
+    try {
+      url = await fetchSegmentAudio(i);
+    } catch {
+      if (myPlay !== playIdRef.current) return;
+      // Skip failed segment
+      speakFrom(i + 1);
+      return;
+    }
+
+    if (myPlay !== playIdRef.current) return;
+
+    const audio = new Audio(url);
+    currentAudioRef.current = audio;
+
+    audio.onended = () => {
+      if (myPlay !== playIdRef.current) return;
+      currentAudioRef.current = null;
+      const pause = segments[i].pauseAfterMs;
+      if (pause > 0) {
+        gapRemainingRef.current = pause;
         gapStartedAtRef.current = Date.now();
         gapTimerRef.current = setTimeout(() => {
           gapTimerRef.current = null;
           gapRemainingRef.current = 0;
           if (myPlay !== playIdRef.current) return;
           speakFrom(i + 1);
-        }, seg.pauseAfterMs);
-      };
+        }, pause);
+      } else {
+        speakFrom(i + 1);
+      }
+    };
 
-      utterance.onend = startGap;
-      utterance.onerror = startGap; // don't get stuck on a single failed line
+    audio.onerror = () => {
+      if (myPlay !== playIdRef.current) return;
+      speakFrom(i + 1);
+    };
 
-      window.speechSynthesis.speak(utterance);
-    },
-    [segments]
-  );
+    try {
+      await audio.play();
+    } catch {
+      if (myPlay !== playIdRef.current) return;
+      speakFrom(i + 1);
+    }
+  }, [segments, fetchSegmentAudio]);
 
-  const handlePlay = useCallback(() => {
-    if (!speechSupported || !segments.length) return;
+  const handlePlay = useCallback(async () => {
+    if (!segments.length) return;
+    stopPlayback();
     playIdRef.current += 1;
-    window.speechSynthesis.cancel();
-    clearGapTimer();
-    pausedRef.current = false;
+    const myPlay = playIdRef.current;
+    setStatus('loading-audio');
+
+    // Pre-fetch first segment before showing playing state
+    try {
+      await fetchSegmentAudio(0);
+    } catch {
+      if (myPlay !== playIdRef.current) return;
+      setError('Could not load audio. Check your connection and try again.');
+      setStatus('idle');
+      return;
+    }
+
+    if (myPlay !== playIdRef.current) return;
     setStatus('playing');
     speakFrom(0);
-  }, [segments.length, speakFrom, clearGapTimer]);
+  }, [segments, stopPlayback, fetchSegmentAudio, speakFrom]);
 
   const handlePause = useCallback(() => {
     if (status !== 'playing') return;
-    pausedRef.current = true;
     setStatus('paused');
 
-    if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-      // Mid-utterance: the browser can pause/resume the active line.
-      window.speechSynthesis.pause();
-    }
-    if (gapTimerRef.current) {
-      // Mid-gap: stop the timer and remember the remaining silence.
+    if (currentAudioRef.current && !currentAudioRef.current.paused) {
+      currentAudioRef.current.pause();
+      pausedInGapRef.current = false;
+    } else if (gapTimerRef.current) {
       const elapsed = Date.now() - gapStartedAtRef.current;
       gapRemainingRef.current = Math.max(0, gapRemainingRef.current - elapsed);
       clearGapTimer();
+      pausedInGapRef.current = true;
     }
   }, [status, clearGapTimer]);
 
   const handleResume = useCallback(() => {
     if (status !== 'paused') return;
-    pausedRef.current = false;
     setStatus('playing');
 
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    } else if (gapRemainingRef.current > 0) {
-      // We were paused during a silence gap — resume the remaining time.
+    if (currentAudioRef.current) {
+      currentAudioRef.current.play().catch(() => speakFrom(indexRef.current));
+      pausedInGapRef.current = false;
+    } else if (pausedInGapRef.current && gapRemainingRef.current > 0) {
       gapStartedAtRef.current = Date.now();
       const remaining = gapRemainingRef.current;
       gapTimerRef.current = setTimeout(() => {
@@ -218,60 +237,53 @@ export default function Hypnosis() {
         gapRemainingRef.current = 0;
         speakFrom(indexRef.current + 1);
       }, remaining);
+      pausedInGapRef.current = false;
     } else {
-      // Edge case: nothing in flight — restart from the current line.
       speakFrom(indexRef.current);
     }
   }, [status, speakFrom]);
 
-  // Tear down speech on unmount or when a new script replaces the old one.
   useEffect(() => {
     return () => {
       clearGapTimer();
-      if (speechSupported) window.speechSynthesis.cancel();
+      if (currentAudioRef.current) currentAudioRef.current.pause();
     };
   }, [clearGapTimer]);
 
-  const handleGenerate = useCallback(
-    async (e) => {
-      e.preventDefault();
-      if (prompt.trim().length < 3) {
-        setError('Describe what you would like the session to help with.');
-        return;
-      }
-      setError('');
-      setLoading(true);
-      stopPlayback();
-      setScript(null);
-      setStatus('idle');
+  const handleGenerate = useCallback(async (e) => {
+    e.preventDefault();
+    if (prompt.trim().length < 3) {
+      setError('Describe what you would like the session to help with.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    stopPlayback();
+    setScript(null);
 
-      try {
-        const { script: generated } = await generateHypnosisScript({
-          prompt: prompt.trim(),
-          durationMinutes,
-          tone,
-        });
-        setScript(generated);
-      } catch (err) {
-        setError(
-          err?.response?.data?.message ||
-            'Could not generate a session right now. Please try again.'
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [prompt, durationMinutes, tone, stopPlayback]
-  );
+    try {
+      const { script: generated } = await generateHypnosisScript({
+        prompt: prompt.trim(),
+        durationMinutes,
+        tone,
+      });
+      setScript(generated);
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          'Could not generate a session right now. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [prompt, durationMinutes, tone, stopPlayback]);
 
   const isPlaying = status === 'playing';
+  const isLoadingAudio = status === 'loading-audio';
   const progress =
     segments.length > 0 && activeIndex >= 0
       ? ((activeIndex + 1) / segments.length) * 100
-      : status === 'finished'
-        ? 100
-        : 0;
-
+      : status === 'finished' ? 100 : 0;
   const orbState = isPlaying ? 'orb-breathing' : 'orb-idle';
 
   return (
@@ -346,6 +358,24 @@ export default function Hypnosis() {
             </div>
           </div>
 
+          {/* Voice picker */}
+          <div>
+            <label className="hypno-label">Voice</label>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {VOICES.map((v) => (
+                <button
+                  type="button"
+                  key={v.value}
+                  onClick={() => setSelectedVoice(v.value)}
+                  className={`hypno-voice-chip ${selectedVoice === v.value ? 'is-active' : ''}`}
+                >
+                  <span className="block font-medium">{v.label}</span>
+                  <span className="block text-[0.65rem] opacity-60">{v.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -357,12 +387,6 @@ export default function Hypnosis() {
           {error && (
             <p className="text-center text-sm text-rose-300/90" role="alert">
               {error}
-            </p>
-          )}
-          {!speechSupported && (
-            <p className="text-center text-sm text-amber-300/80">
-              Your browser does not support speech synthesis, so playback is
-              unavailable. You can still read the generated script.
             </p>
           )}
         </form>
@@ -380,12 +404,12 @@ export default function Hypnosis() {
                 </p>
               )}
               <p className="mt-1 text-xs uppercase tracking-[0.2em] text-indigo-300/50">
-                {segments.length} passages · ~{formatClock(estimatedTotalMs)}
+                {segments.length} passages
               </p>
             </div>
 
             {/* Playback controls */}
-            {speechSupported && segments.length > 0 && (
+            {segments.length > 0 && (
               <div className="mt-8 space-y-4">
                 <div className="hypno-progress">
                   <div
@@ -398,6 +422,10 @@ export default function Hypnosis() {
                   {status === 'idle' || status === 'finished' ? (
                     <button onClick={handlePlay} className="hypno-control is-primary">
                       ▶ Begin
+                    </button>
+                  ) : isLoadingAudio ? (
+                    <button disabled className="hypno-control opacity-60">
+                      Loading audio…
                     </button>
                   ) : isPlaying ? (
                     <button onClick={handlePause} className="hypno-control">
@@ -416,53 +444,14 @@ export default function Hypnosis() {
                     ■ Stop
                   </button>
                 </div>
-
-                {/* Voice + pace */}
-                <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="hypno-voice" className="hypno-label">
-                      Voice
-                    </label>
-                    <select
-                      id="hypno-voice"
-                      value={voiceURI}
-                      onChange={(e) => setVoiceURI(e.target.value)}
-                      className="hypno-input mt-2 w-full px-3 py-2 text-sm"
-                    >
-                      {voices.map((v) => (
-                        <option key={v.voiceURI} value={v.voiceURI} className="bg-indigo-950">
-                          {v.name} ({v.lang})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="hypno-rate" className="hypno-label">
-                      Pace · {rate.toFixed(2)}×
-                    </label>
-                    <input
-                      id="hypno-rate"
-                      type="range"
-                      min="0.5"
-                      max="1"
-                      step="0.01"
-                      value={rate}
-                      onChange={(e) => setRate(Number(e.target.value))}
-                      className="hypno-range mt-4 w-full"
-                    />
-                  </div>
-                </div>
               </div>
             )}
 
             {/* Script text */}
             <div className="mt-12 space-y-10">
               {script.phases?.map((phase, pi) => {
-                // Compute the flat offset for this phase to map highlighting.
                 let offset = 0;
-                for (let k = 0; k < pi; k += 1) {
-                  offset += script.phases[k].segments?.length || 0;
-                }
+                for (let k = 0; k < pi; k++) offset += script.phases[k].segments?.length || 0;
                 return (
                   <div key={`${phase.name}-${pi}`}>
                     <h3 className="hypno-phase-label">{phase.label}</h3>
@@ -471,10 +460,7 @@ export default function Hypnosis() {
                         const flatIndex = offset + si;
                         const active = flatIndex === activeIndex;
                         return (
-                          <p
-                            key={si}
-                            className={`hypno-line ${active ? 'is-active' : ''}`}
-                          >
+                          <p key={si} className={`hypno-line ${active ? 'is-active' : ''}`}>
                             {seg.text}
                           </p>
                         );
@@ -536,6 +522,24 @@ const ORB_STYLES = `
     background: rgba(251, 191, 36, 0.08);
   }
 
+  .hypno-voice-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(165, 180, 252, 0.18);
+    color: rgba(224, 231, 255, 0.8);
+    padding: 0.55rem 0.4rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .hypno-voice-chip:hover { border-color: rgba(165, 180, 252, 0.4); }
+  .hypno-voice-chip.is-active {
+    border-color: rgba(251, 191, 36, 0.7);
+    color: #fde68a;
+    background: rgba(251, 191, 36, 0.08);
+  }
+
   .hypno-generate {
     background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     color: #1e1b4b;
@@ -544,9 +548,7 @@ const ORB_STYLES = `
     box-shadow: 0 0 30px rgba(245, 158, 11, 0.25);
     transition: box-shadow 0.3s ease, transform 0.1s ease;
   }
-  .hypno-generate:hover:not(:disabled) {
-    box-shadow: 0 0 45px rgba(245, 158, 11, 0.4);
-  }
+  .hypno-generate:hover:not(:disabled) { box-shadow: 0 0 45px rgba(245, 158, 11, 0.4); }
   .hypno-generate:active:not(:disabled) { transform: translateY(1px); }
 
   .hypno-control {
@@ -578,8 +580,6 @@ const ORB_STYLES = `
     transition: width 0.6s ease;
   }
 
-  .hypno-range { accent-color: #f59e0b; }
-
   .hypno-phase-label {
     font-size: 0.7rem;
     letter-spacing: 0.25em;
@@ -601,7 +601,6 @@ const ORB_STYLES = `
     text-shadow: 0 0 22px rgba(251, 191, 36, 0.35);
   }
 
-  /* The signature breathing orb */
   .hypno-orb {
     position: relative;
     width: 140px;
