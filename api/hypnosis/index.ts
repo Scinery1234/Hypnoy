@@ -161,9 +161,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const status = err.status && err.status >= 500 ? 502 : 400;
       return res
         .status(status)
-        .json({ message: 'Failed to generate the script. Please try again.' });
+        .json({ message: err.message, status: err.status, error: 'APIError' });
     }
+    const msg = err instanceof Error ? err.message : String(err);
     console.error('Hypnosis generation error:', err);
-    return res.status(500).json({ message: 'Unexpected error generating the script.' });
+    return res.status(500).json({ message: msg, error: 'UnexpectedError' });
   }
 }
