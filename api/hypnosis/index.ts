@@ -128,14 +128,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const message = await client.messages.create({
-      model: 'claude-opus-4-8',
+      model: 'claude-sonnet-4-6',
       max_tokens: 16000,
-      thinking: { type: 'adaptive' },
-      output_config: {
-        effort: 'low',
-        format: { type: 'json_schema', schema: SCRIPT_SCHEMA },
-      },
       system: buildSystemPrompt(durationMinutes, tone),
+      tools: [
+        {
+          name: 'generate_script',
+          description: 'Output the fully structured hypnosis script.',
+          input_schema: SCRIPT_SCHEMA as Record<string, unknown>,
+        },
+      ],
+      tool_choice: { type: 'tool', name: 'generate_script' },
       messages: [
         {
           role: 'user',
@@ -144,24 +147,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ],
     });
 
-    if (message.stop_reason === 'refusal') {
-      return res.status(422).json({
-        message:
-          'This request could not be turned into a hypnosis script. Try rephrasing your intention.',
-      });
-    }
-
-    const textBlock = message.content.find((b) => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
+    const toolBlock = message.content.find((b) => b.type === 'tool_use');
+    if (!toolBlock || toolBlock.type !== 'tool_use') {
       return res.status(502).json({ message: 'The model returned no usable script.' });
     }
 
-    let script: unknown;
-    try {
-      script = JSON.parse(textBlock.text);
-    } catch {
-      return res.status(502).json({ message: 'The generated script was malformed.' });
-    }
+    const script = toolBlock.input;
 
     return res.status(200).json({ script });
   } catch (err) {
