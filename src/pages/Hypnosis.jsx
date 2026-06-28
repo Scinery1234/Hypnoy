@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { generateHypnosisScript } from '@/api/hypnosis';
+import { generateHypnosisScript, refineHypnosisScript } from '@/api/hypnosis';
+import { SOUNDSCAPES, Soundscape } from '@/lib/soundscape';
 
-const DURATIONS = [5, 10, 20];
+const DURATION_PRESETS = [3, 5, 10, 20, 30, 45];
+const MIN_DURATION = 1;
+const MAX_DURATION = 60;
+const REFINE_SUGGESTIONS = [
+  'Make it calmer and slower',
+  'Add longer pauses',
+  'More vivid imagery',
+  'Focus more on the intention',
+  'Make it a little shorter',
+];
 const TONES = [
   { value: 'gentle', label: 'Gentle' },
   { value: 'authoritative', label: 'Authoritative' },
@@ -28,10 +38,18 @@ export default function Hypnosis() {
   const [durationMinutes, setDurationMinutes] = useState(10);
   const [tone, setTone] = useState('gentle');
   const [selectedVoice, setSelectedVoice] = useState('nova');
+  const [soundscape, setSoundscape] = useState('deep-calm');
+  const [musicVolume, setMusicVolume] = useState(0.35);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [script, setScript] = useState(null);
+
+  // Chat-based refinement of the generated script (before playback).
+  const [refineInput, setRefineInput] = useState('');
+  const [refining, setRefining] = useState(false);
+  const [refineError, setRefineError] = useState('');
+  const [refineHistory, setRefineHistory] = useState([]);
 
   const [status, setStatus] = useState('idle'); // idle | loading-audio | playing | paused | finished
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -47,10 +65,38 @@ export default function Hypnosis() {
   // Cache: index -> blob URL (persists across pause/resume, cleared on new script/voice)
   const audioCacheRef = useRef({});
   const selectedVoiceRef = useRef(selectedVoice);
+  // Web Audio background soundscape (created once, lazily unlocked on first play).
+  const soundscapeRef = useRef(null);
 
   useEffect(() => {
     selectedVoiceRef.current = selectedVoice;
   }, [selectedVoice]);
+
+  useEffect(() => {
+    soundscapeRef.current = new Soundscape();
+    soundscapeRef.current.setVolume(musicVolume);
+    return () => {
+      soundscapeRef.current?.dispose();
+      soundscapeRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Drive the background soundscape from playback status + selection.
+  useEffect(() => {
+    const ss = soundscapeRef.current;
+    if (!ss) return;
+    if (status === 'playing') {
+      ss.start(soundscape);
+    } else if (status === 'idle' || status === 'finished') {
+      ss.stop();
+    }
+    // 'paused' intentionally leaves the ambient bed playing softly.
+  }, [status, soundscape]);
+
+  useEffect(() => {
+    soundscapeRef.current?.setVolume(musicVolume);
+  }, [musicVolume]);
 
   const segments = useMemo(() => {
     if (!script?.phases) return [];
@@ -187,6 +233,9 @@ export default function Hypnosis() {
 
   const handlePlay = useCallback(async () => {
     if (!segments.length) return;
+    // Unlock the audio context synchronously inside the user gesture so the
+    // background soundscape is allowed to start.
+    soundscapeRef.current?.unlock();
     stopPlayback();
     playIdRef.current += 1;
     const myPlay = playIdRef.current;
@@ -260,6 +309,9 @@ export default function Hypnosis() {
     setLoading(true);
     stopPlayback();
     setScript(null);
+    setRefineHistory([]);
+    setRefineError('');
+    setRefineInput('');
 
     try {
       const { script: generated } = await generateHypnosisScript({
@@ -277,6 +329,41 @@ export default function Hypnosis() {
       setLoading(false);
     }
   }, [prompt, durationMinutes, tone, stopPlayback]);
+
+  const handleRefine = useCallback(
+    async (rawInstruction) => {
+      const instruction = (rawInstruction ?? refineInput).trim();
+      if (!script || refining) return;
+      if (instruction.length < 2) {
+        setRefineError('Type how you would like to adjust the session.');
+        return;
+      }
+      setRefineError('');
+      setRefining(true);
+      // Editing the script invalidates any in-progress playback / cached audio.
+      stopPlayback();
+
+      try {
+        const { script: revised } = await refineHypnosisScript({
+          baseScript: script,
+          editInstruction: instruction,
+          tone,
+          durationMinutes: script.durationMinutes || durationMinutes,
+        });
+        setScript(revised);
+        setRefineHistory((h) => [...h, instruction]);
+        setRefineInput('');
+      } catch (err) {
+        setRefineError(
+          err?.response?.data?.message ||
+            'Could not apply that change. Please try rephrasing.'
+        );
+      } finally {
+        setRefining(false);
+      }
+    },
+    [refineInput, script, refining, tone, durationMinutes, stopPlayback]
+  );
 
   const isPlaying = status === 'playing';
   const isLoadingAudio = status === 'loading-audio';
@@ -324,19 +411,32 @@ export default function Hypnosis() {
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
-              <label className="hypno-label">Duration</label>
-              <div className="mt-2 flex gap-2">
-                {DURATIONS.map((d) => (
+              <label className="hypno-label flex items-center justify-between">
+                <span>Duration</span>
+                <span className="hypno-duration-value">{durationMinutes} min</span>
+              </label>
+              <div className="mt-2 grid grid-cols-6 gap-2">
+                {DURATION_PRESETS.map((d) => (
                   <button
                     type="button"
                     key={d}
                     onClick={() => setDurationMinutes(d)}
-                    className={`hypno-chip flex-1 ${durationMinutes === d ? 'is-active' : ''}`}
+                    className={`hypno-chip ${durationMinutes === d ? 'is-active' : ''}`}
                   >
-                    {d} min
+                    {d}
                   </button>
                 ))}
               </div>
+              <input
+                type="range"
+                min={MIN_DURATION}
+                max={MAX_DURATION}
+                step={1}
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                className="hypno-range mt-3 w-full"
+                aria-label="Session length in minutes"
+              />
             </div>
 
             <div>
@@ -376,6 +476,42 @@ export default function Hypnosis() {
             </div>
           </div>
 
+          {/* Background soundscape picker */}
+          <div>
+            <label className="hypno-label">Background sound</label>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {SOUNDSCAPES.map((s) => (
+                <button
+                  type="button"
+                  key={s.value}
+                  onClick={() => setSoundscape(s.value)}
+                  className={`hypno-voice-chip ${soundscape === s.value ? 'is-active' : ''}`}
+                >
+                  <span className="block font-medium">{s.label}</span>
+                  <span className="block text-[0.65rem] opacity-60">{s.desc}</span>
+                </button>
+              ))}
+            </div>
+            {soundscape !== 'none' && (
+              <div className="mt-3 flex items-center gap-3">
+                <span className="hypno-volume-label">Volume</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={musicVolume}
+                  onChange={(e) => setMusicVolume(Number(e.target.value))}
+                  className="hypno-range flex-1"
+                  aria-label="Background music volume"
+                />
+              </div>
+            )}
+            <p className="mt-2 text-[0.7rem] text-indigo-300/40">
+              Ambient sound is generated live in your browser — no downloads, fully royalty-free.
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -406,6 +542,64 @@ export default function Hypnosis() {
               <p className="mt-1 text-xs uppercase tracking-[0.2em] text-indigo-300/50">
                 {segments.length} passages
               </p>
+            </div>
+
+            {/* Refine the script with chat-style edits before pressing play */}
+            <div className="hypno-refine mt-8">
+              <p className="hypno-refine-title">Adjust before you begin</p>
+              <p className="hypno-refine-hint">
+                Reshape the session in plain language — its focus, pacing, length, or
+                imagery — then press Begin when it feels right.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {REFINE_SUGGESTIONS.map((s) => (
+                  <button
+                    type="button"
+                    key={s}
+                    disabled={refining}
+                    onClick={() => handleRefine(s)}
+                    className="hypno-suggest disabled:opacity-40"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleRefine();
+                }}
+                className="mt-3 flex flex-col gap-2 sm:flex-row"
+              >
+                <input
+                  type="text"
+                  value={refineInput}
+                  onChange={(e) => setRefineInput(e.target.value)}
+                  maxLength={400}
+                  disabled={refining}
+                  placeholder="e.g. add more about feeling confident and calm"
+                  className="hypno-input flex-1 px-4 py-2.5 text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={refining || refineInput.trim().length < 2}
+                  className="hypno-control is-primary whitespace-nowrap disabled:opacity-40"
+                >
+                  {refining ? 'Revising…' : 'Apply edit'}
+                </button>
+              </form>
+              {refineError && (
+                <p className="mt-2 text-sm text-rose-300/90" role="alert">
+                  {refineError}
+                </p>
+              )}
+              {refineHistory.length > 0 && (
+                <ul className="hypno-refine-log mt-3">
+                  {refineHistory.map((h, i) => (
+                    <li key={i}>✓ {h}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Playback controls */}
@@ -448,7 +642,7 @@ export default function Hypnosis() {
             )}
 
             {/* Script text */}
-            <div className="mt-12 space-y-10">
+            <div className={`mt-12 space-y-10 transition-opacity ${refining ? 'opacity-40' : ''}`}>
               {script.phases?.map((phase, pi) => {
                 let offset = 0;
                 for (let k = 0; k < pi; k++) offset += script.phases[k].segments?.length || 0;
@@ -566,6 +760,91 @@ const ORB_STYLES = `
     background: rgba(251, 191, 36, 0.12);
     border-color: rgba(251, 191, 36, 0.6);
     color: #fde68a;
+  }
+
+  .hypno-duration-value {
+    letter-spacing: 0.05em;
+    color: #fde68a;
+    text-transform: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hypno-volume-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(165, 180, 252, 0.6);
+    white-space: nowrap;
+  }
+
+  .hypno-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 2px;
+    background: rgba(165, 180, 252, 0.25);
+    border-radius: 9999px;
+    outline: none;
+    cursor: pointer;
+  }
+  .hypno-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #fcd34d;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    cursor: pointer;
+  }
+  .hypno-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 9999px;
+    background: #fcd34d;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    cursor: pointer;
+  }
+
+  .hypno-refine {
+    border: 1px solid rgba(165, 180, 252, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1.1rem 1.2rem;
+  }
+  .hypno-refine-title {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(251, 191, 36, 0.7);
+  }
+  .hypno-refine-hint {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: rgba(199, 210, 254, 0.6);
+  }
+  .hypno-suggest {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(165, 180, 252, 0.2);
+    color: rgba(224, 231, 255, 0.85);
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .hypno-suggest:hover:not(:disabled) {
+    border-color: rgba(251, 191, 36, 0.5);
+    color: #fde68a;
+  }
+  .hypno-refine-log {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.78rem;
+    color: rgba(134, 239, 172, 0.7);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
   }
 
   .hypno-progress {

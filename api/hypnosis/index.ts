@@ -18,8 +18,15 @@ export const config = { maxDuration: 60 };
 
 type Tone = 'gentle' | 'authoritative' | 'warm';
 
-const ALLOWED_DURATIONS = [5, 10, 20] as const;
+const MIN_DURATION = 1;
+const MAX_DURATION = 60;
 const ALLOWED_TONES: Tone[] = ['gentle', 'authoritative', 'warm'];
+
+function clampDuration(value: unknown): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 10;
+  return Math.max(MIN_DURATION, Math.min(MAX_DURATION, n));
+}
 
 const SCRIPT_SCHEMA = {
   type: 'object',
@@ -92,6 +99,22 @@ Pacing rules (these drive the actual playback timing — they matter):
 Return only the structured script.`;
 }
 
+function buildRevisionSystemPrompt(durationMinutes: number, tone: Tone): string {
+  return `You are an expert clinical hypnotherapist and scriptwriter revising an existing guided hypnosis script.
+
+You will be given the current script as JSON and a short instruction describing how the listener wants it changed. Apply the requested change while keeping the session calming, safe, ethical, and effective.
+
+Rules for the revision:
+- Honour the listener's instruction directly. If it asks to change focus, tone, length, pacing, imagery, or a specific phase, make exactly that change.
+- Preserve the four-phase structure (induction → deepener → therapeutic → emergence) unless the instruction explicitly asks otherwise. Keep anything the instruction does not ask to change largely intact.
+- Keep the target length near ${durationMinutes} minutes and an overall ${tone} tone unless the instruction overrides this.
+- Each segment is ONE spoken sentence or short phrase, second person ("you"), no stage directions or bracketed notes — text is spoken verbatim.
+- pauseAfterMs controls rhythm (0–20000): short reflective pauses (800–2500ms) between most lines; longer pauses (4000–10000ms) after breathing cues and at phase transitions.
+- Never include anything alarming, medical claims, or references to being a recording or an AI.
+
+Return the complete revised script — every phase and segment, not just the changed parts.`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -107,22 +130,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     prompt?: unknown;
     durationMinutes?: unknown;
     tone?: unknown;
+    editInstruction?: unknown;
+    baseScript?: unknown;
   };
 
-  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
-  if (prompt.length < 3) {
-    return res
-      .status(400)
-      .json({ message: 'A prompt of at least 3 characters is required.' });
-  }
-  if (prompt.length > 600) {
-    return res.status(400).json({ message: 'Prompt is too long (max 600 characters).' });
-  }
-
-  const durationMinutes = ALLOWED_DURATIONS.includes(body.durationMinutes as 5 | 10 | 20)
-    ? (body.durationMinutes as number)
-    : 10;
   const tone = ALLOWED_TONES.includes(body.tone as Tone) ? (body.tone as Tone) : 'gentle';
+  const durationMinutes = clampDuration(body.durationMinutes);
+
+  // Refine mode: revise an existing script from a short chat instruction.
+  const editInstruction =
+    typeof body.editInstruction === 'string' ? body.editInstruction.trim() : '';
+  const isRefine = editInstruction.length > 0;
+
+  let systemPrompt: string;
+  let userContent: string;
+
+  if (isRefine) {
+    if (editInstruction.length > 400) {
+      return res
+        .status(400)
+        .json({ message: 'Edit instruction is too long (max 400 characters).' });
+    }
+    if (!body.baseScript || typeof body.baseScript !== 'object' || Array.isArray(body.baseScript)) {
+      return res
+        .status(400)
+        .json({ message: 'A baseScript object is required to refine a session.' });
+    }
+    let baseJson: string;
+    try {
+      baseJson = JSON.stringify(body.baseScript);
+    } catch {
+      return res.status(400).json({ message: 'baseScript could not be processed.' });
+    }
+    if (baseJson.length > 40000) {
+      return res.status(400).json({ message: 'baseScript is too large.' });
+    }
+    const baseDuration =
+      typeof (body.baseScript as { durationMinutes?: unknown }).durationMinutes === 'number'
+        ? clampDuration((body.baseScript as { durationMinutes: number }).durationMinutes)
+        : durationMinutes;
+    systemPrompt = buildRevisionSystemPrompt(baseDuration, tone);
+    userContent = `Here is the current session script as JSON:\n\n${baseJson}\n\nRevise it according to this instruction: "${editInstruction}". Return the complete updated script.`;
+  } else {
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (prompt.length < 3) {
+      return res
+        .status(400)
+        .json({ message: 'A prompt of at least 3 characters is required.' });
+    }
+    if (prompt.length > 600) {
+      return res.status(400).json({ message: 'Prompt is too long (max 600 characters).' });
+    }
+    systemPrompt = buildSystemPrompt(durationMinutes, tone);
+    userContent = `Create a hypnosis session for this intention: "${prompt}". Desired length: ${durationMinutes} minutes. Tone: ${tone}.`;
+  }
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -130,7 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 16000,
-      system: buildSystemPrompt(durationMinutes, tone),
+      system: systemPrompt,
       tools: [
         {
           name: 'generate_script',
@@ -142,7 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       messages: [
         {
           role: 'user',
-          content: `Create a hypnosis session for this intention: "${prompt}". Desired length: ${durationMinutes} minutes. Tone: ${tone}.`,
+          content: userContent,
         },
       ],
     });

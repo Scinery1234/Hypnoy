@@ -23,3 +23,28 @@ export async function generateHypnosisScript({ prompt, durationMinutes = 10, ton
 
   return data;
 }
+
+/**
+ * Refine an existing hypnosis script using a short natural-language instruction.
+ * Calls the same /api/hypnosis endpoint in "refine" mode.
+ *
+ * @param {{ baseScript: object, editInstruction: string, tone?: string, durationMinutes?: number }} params
+ * @returns {Promise<{ script: object }>}
+ */
+export async function refineHypnosisScript({ baseScript, editInstruction, tone = 'gentle', durationMinutes = 10 }) {
+  const res = await fetch('/api/hypnosis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ baseScript, editInstruction, tone, durationMinutes }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const err = new Error(data?.message || 'Request failed');
+    err.response = { data, status: res.status };
+    throw err;
+  }
+
+  return data;
+}
