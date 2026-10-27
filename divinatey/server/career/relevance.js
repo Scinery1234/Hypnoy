@@ -26,7 +26,7 @@ export function traditionalCareer(system, tabs) {
   }
 
   if (system === "vedic") {
-    const lagna = tab("grahas").items[0];
+    const lagna = tab("grahas").items.find(it => /^Lagna/.test(it.title));   // absent without a birth time
     const ls = lagna ? RASHI.findIndex(r => (lagna.code || "").includes(r)) : -1;
     const lord10 = ls >= 0 ? RASHI_LORD[(ls + 9) % 12] : null, lordL = ls >= 0 ? RASHI_LORD[ls] : null;
     const roles = { Sun: "status, authority and recognition (karaka of career)", Saturn: "work, service and endurance (karaka of profession)", Mercury: "skill, trade and communication", Jupiter: "wisdom, counsel and good fortune" };

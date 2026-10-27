@@ -45,15 +45,15 @@ One site (Express server + React/Vite client) with:
 - `scripts/stripe-setup.mjs` (`npm run stripe:setup`) — creates prices, billing portal and webhook
 - `shared/astro/systems/numerology.js` — Numerology (no astronomy; `needsBirthName` and `dateOnly` flags change the form)
 - `server/career/` — the Career Reading engine (see below); `scripts/career-reading.mjs` runs it
-- Tests: `npm test` (67 tests; Claude, Supabase and Stripe are mocked)
+- Tests: `npm test` (70 tests; Claude, Supabase, Stripe and Resend are mocked)
 
 ## Setup still to do (by the user)
 
-1. Supabase: run migrations 0001, 0002, 0003, 0004; add redirect URLs `/account` and `/preview/account`; set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `FREE_LIMIT_SECRET`.
+1. Supabase: run migrations 0001, 0002, 0003, 0004, 0005; add redirect URLs `/account` and `/preview/account`; set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `FREE_LIMIT_SECRET`.
 2. Stripe (test mode first): `STRIPE_SECRET_KEY=sk_test_... PUBLIC_URL=https://site npm run stripe:setup`; set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_URL`; test with card 4242 4242 4242 4242.
 3. Before launch: Stripe business details and activation; legal review of Terms/Privacy (refunds); currency (USD now, AUD on request); run setup with the live key; `PAID_PREVIEW=0`.
 
-## Career Reading (in progress)
+## Career Reading
 
 A long careers report: a short quiz (Work Style Compass short form + New Page quadrant), birth details, a query-blind I Ching and Tarot cast, the question, then all five charts read for career, a profile, current state, the next 30 days and the tailored New Page 4-week plan. Design: `docs/career-reading/PLAN.md`.
 
@@ -62,8 +62,10 @@ A long careers report: a short quiz (Work Style Compass short form + New Page qu
 - **Run it:** `npm run career:reading -- docs/career-reading/sample/input.json --out report.md --dossier dossier.md` (uses the API if `ANTHROPIC_API_KEY` is set; `--answers file.json` renders from saved outputs).
 - **Sample:** `docs/career-reading/sample/` — input, every step's prompt (`dossier.md`), outputs (`answers.json`) and `report.md` (~27,500 words). The outputs were written in a Claude Code session from each step's prompt, because no API key was available; it tests the format, not true isolation. Rerun with a key for a real comparison.
 - **Prototype UI:** `docs/career-reading/prototype/` (`npm run career:prototype` builds `index.html` with the real quiz scoring and casting inlined). Published as a private artifact. New Page brand, light only.
-- **Not built yet:** server routes, payment, background generation and email, PDF export, "I don't know my birth time" handling (time-sensitive items should be dropped), place search in the prototype.
-- **Open decisions:** brand (New Page vs Divinatey), price and where it sits, the four new Compass statements (check against the full 40-question bank).
+- **Live in the app:** `/career` (and `/preview/career`, free): `src/career/CareerApp.jsx` (New Page look, scoped CSS in `src/career/career.css`). Server: `server/career/service.js` (cast → submit → Stripe or queue → background writing with retries and resume → done/failed) and routes in `server/index.js`; email via `server/mail.js` (Resend); one-off Stripe price `divinatey_career_reading` in `server/billing.js`. Migration `0005_career_readings.sql`. Home page has a Career Reading card.
+- **Setup to do:** run migration 0005; rerun `npm run stripe:setup` (price defaults to $49, `CAREER_READING_PRICE` in cents); set `RESEND_API_KEY` and `MAIL_FROM` for the ready email (optional).
+- **Not built:** listing a person's past readings on the account page, a server-generated PDF (the browser's Save as PDF is used), and real-API quality checks (needs `ANTHROPIC_API_KEY`).
+- **Open decisions:** brand (New Page look used), the $49 default price and whether paid-plan members get it included, the four new Compass statements (check against the full 40-question bank).
 
 ## Open items / ideas
 

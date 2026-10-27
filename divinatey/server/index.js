@@ -9,6 +9,9 @@ import { rateLimit } from "./rate-limit.js";
 import { freeChartLimit } from "./free-limit.js";
 import { createStore, SLOTS } from "./store.js";
 import { createBilling, BillingError } from "./billing.js";
+import { createCareerService, CareerError } from "./career/service.js";
+import { apiRunner } from "./career/pipeline.js";
+import { createMailer } from "./mail.js";
 import { searchPlaces, warmPlaces, chartChatContext, chartFactCards, guidePrompt, readingPrompt, parseChartInput, renderChart, chartKey, systemMeta, ChartInputError } from "./astro.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -406,6 +409,53 @@ app.post("/api/billing/checkout", accountLimit, identify, requireUser,
 app.post("/api/billing/portal", accountLimit, identify, requireUser,
   billingRoute(req => billing.portal(req.user, returnUrl(req))));
 
+// ── Career Readings ──────────────────────────────────────────────────────────
+// Cast first (sealed on the server), then the answers and question, then payment
+// (or straight on in the preview), then the reading is written in the background.
+let lastBase = "";
+const siteUrl = () => process.env.PUBLIC_URL || lastBase || "http://localhost:" + PORT;
+const mailer = createMailer();
+const career = createCareerService({
+  store, billing, mailer, getSeed: getQuantumSeed, publicUrl: siteUrl,
+  runner: apiRunner(new Anthropic(), {
+    model: process.env.ANTHROPIC_MODEL || "claude-opus-5-5",
+    quickModel: process.env.ANTHROPIC_QUICK_MODEL || "claude-haiku-5-5",
+    effort: process.env.ORACLE_EFFORT || "low",
+  }),
+});
+const careerLimit = rateLimit({ windowMs: 10 * 60 * 1000, max: Number(process.env.CAREER_PER_10MIN) || 12 });
+const careerStatusLimit = rateLimit({ windowMs: 60 * 1000, max: 120 });
+const careerRoute = fn => async (req, res) => {
+  lastBase = req.protocol + "://" + req.get("host");
+  try { await fn(req, res); }
+  catch (err) {
+    if (err instanceof CareerError) return res.status(err.status).json({ error: err.code });
+    if (err instanceof BillingError) return res.status(err.status).json({ error: err.code });
+    console.error("Career reading error:", err);
+    res.status(500).json({ error: "internal" });
+  }
+};
+app.get("/api/career/config", careerRoute(async (req, res) => {
+  let price = null;
+  try { price = await career.price(); } catch (err) { console.error("Career reading price lookup failed:", err.message || err); }
+  res.json({ price, billing: !!billing, preview: req.preview, email: mailer.enabled });
+}));
+app.post("/api/career/cast", careerLimit, identifyOptional, careerRoute(async (req, res) =>
+  res.json(await career.cast({ userId: req.user && req.user.id, preview: req.preview }))));
+app.post("/api/career/readings/:id", careerLimit, careerRoute(async (req, res) =>
+  res.json(await career.submit(req.params.id, req.body, { preview: req.preview }))));
+app.get("/api/career/readings/:id", careerStatusLimit, careerRoute(async (req, res) =>
+  res.json(await career.status(req.params.id))));
+app.post("/api/career/readings/:id/retry", careerLimit, careerRoute(async (req, res) =>
+  res.json(await career.retry(req.params.id))));
+app.post("/api/career/readings/:id/checkout", careerLimit, careerRoute(async (req, res) =>
+  res.json({ url: await career.checkout(req.params.id) })));
+app.get("/api/career/readings/:id/report.md", careerStatusLimit, careerRoute(async (req, res) => {
+  const md = await career.report(req.params.id);
+  res.set({ "content-type": "text/markdown; charset=utf-8", "content-disposition": 'attachment; filename="career-reading.md"', "cache-control": "private, no-store" });
+  res.send(md);
+}));
+
 app.use("/api", (req, res) => res.status(404).json({ error: "not found" }));
 
 // Production: serve the built client with SPA fallback.
@@ -419,4 +469,5 @@ app.listen(PORT, () => {
   console.log("Divinatey listening on http://localhost:" + PORT);
   // Build the place index now so the first birth-place search is instant.
   setImmediate(() => { const t = Date.now(); warmPlaces(); console.log("Place index ready in " + (Date.now() - t) + " ms"); });
+  career.resume().then(n => n && console.log(`Resuming ${n} career reading(s)`), err => console.error("Couldn't resume career readings:", err.message || err));
 });

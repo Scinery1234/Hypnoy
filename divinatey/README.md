@@ -66,7 +66,12 @@ If the app runs behind a reverse proxy or load balancer, set `TRUST_PROXY=1` so 
 | `STRIPE_SECRET_KEY` | (unset) | Turns payments on |
 | `STRIPE_WEBHOOK_SECRET` | (unset) | Signing secret of the webhook endpoint |
 | `PUBLIC_URL` | (request host) | The site's public address, for Stripe's return links |
-| `STRIPE_PRICE_MONTHLY` / `_YEARLY` / `_EXTRA` | (lookup keys) | Use specific price IDs instead of the lookup keys |
+| `STRIPE_PRICE_MONTHLY` / `_YEARLY` / `_EXTRA` / `_READING` | (lookup keys) | Use specific price IDs instead of the lookup keys |
+| `RESEND_API_KEY`, `MAIL_FROM` | (unset) | Turn on the "your Career Reading is ready" email (Resend). `MAIL_FROM` like `Divinatey <hello@your-domain>` |
+| `CAREER_PARALLEL` | `2` | Career Readings written at the same time |
+| `CAREER_CONCURRENCY` | `8` | AI steps at once within one reading |
+| `CAREER_KEEP_DAYS` | `90` | Career Readings are deleted after this many days |
+| `CAREER_PER_10MIN` | `12` | Casts and submissions per IP |
 
 If a request is declined on policy grounds, it's automatically retried on Anthropic's recommended fallback model (`fallbacks: "default"`).
 
@@ -112,6 +117,18 @@ Under a reading, paid accounts (and the preview) have a **Bring in my charts** b
 The fast-model steps are optional: if the key can't use the fast model it falls back to the main one; if picking facts fails, a default set is used (core placements plus current transits); if polishing fails or time runs short, the draft is sent. Step timings are logged as `Linked chat steps (ms)`.
 
 Changing the linked charts (adding, removing, editing or unlinking) re-answers the latest question with the new set, marked "↻ updated with your charts". The reply shows a light *drew on* line in plain words, e.g. "how you make decisions (Human Design)". Only chart data goes in, never text from an earlier reading. Each draw asked with linked charts uses one of the week's `LINKED_QUESTIONS_PER_WEEK` (5) questions; follow-ups on the same draw are free, and the preview is unlimited. Run `supabase/migrations/0002_linked_questions.sql` for the weekly count.
+
+## Career Reading
+
+A long careers report at `/career`: 22–23 questions (Work Style Compass short form and the New Page quadrant questions), birth details, an I Ching and Tarot draw cast on the server and sealed before the question is typed, then the question. The reading (about 200 AI steps; each chart read on its own, then a cross-system profile, current state, the next 30 days, the answer and a tailored New Page 4-week plan) is written in the background in about five minutes. Design and rules: `docs/career-reading/PLAN.md`.
+
+- Flow: `POST /api/career/cast` → `POST /api/career/readings/:id` (answers, birth details, question, optional email) → Stripe checkout (one-off, no account) or, in the preview, straight to the queue → `GET /api/career/readings/:id` for progress and the finished report → `GET …/report.md` to download. `POST …/retry` re-runs a failed reading, keeping the steps that worked.
+- The reading's id is its private link (`/career/r/<id>`). Readings are stored (Supabase table `career_readings`, migration 0005) until done and for `CAREER_KEEP_DAYS` after.
+- Readings run inside the server process and resume after a restart. Run the server somewhere long-lived (Docker, a VM, Render, Fly); serverless functions that stop after a request will cut readings off.
+- Without a birth time, charts are set for midday and the time-dependent parts (Ascendant, Midheaven, houses, Lagna, Lagna-based yogas) are left out; dasha timing is marked approximate.
+- PDF: the reading page's Download PDF opens the browser's print window with print styles (Save as PDF).
+- Set up: run migration 0005; rerun `npm run stripe:setup` (adds the Career Reading price, `CAREER_READING_PRICE` cents, default 4900, and subscribes the webhook to `checkout.session.async_payment_succeeded`); optionally set `RESEND_API_KEY` and `MAIL_FROM`.
+- `npm run career:reading -- input.json --out report.md --dossier dossier.md` runs the pipeline from the command line.
 
 ## Paid preview
 

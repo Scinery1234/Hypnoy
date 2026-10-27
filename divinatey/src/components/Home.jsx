@@ -60,8 +60,8 @@ export function Home({ onDraw, onContinue, onChart, onAccount, auth, billingOn, 
 
       {/* ── Two ways in ──────────────────────────────────────────────────── */}
       <section style={section} aria-labelledby="ways">
-        <p style={eyebrow}>two ways in</p>
-        <h2 id="ways" style={h2}>Ask the oracle, or read your chart</h2>
+        <p style={eyebrow}>three ways in</p>
+        <h2 id="ways" style={h2}>Ask the oracle, read your chart, or go deep on your work</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14, marginTop: 18 }}>
           <div style={card}>
             <div style={{ fontSize: 34, color: T.gold, lineHeight: 1, marginBottom: 10 }} aria-hidden="true">䷀ ✦</div>
@@ -74,6 +74,12 @@ export function Home({ onDraw, onContinue, onChart, onAccount, auth, billingOn, 
             <h3 style={{ fontFamily: serif, fontWeight: 400, fontSize: 20, margin: "0 0 6px", color: T.text }}>Your birth charts</h3>
             <p style={{ ...body, fontSize: 14 }}>Enter your birth details once and open five charts: four calculated from your birth moment, with today's transits and a two-week forecast, plus numerology from your birth name and date.</p>
             <button onClick={() => onChart("natal")} style={{ ...primary, padding: "10px 22px", fontSize: 13, marginTop: 14 }}>open my chart ✦</button>
+          </div>
+          <div style={card}>
+            <div style={{ fontSize: 12, color: T.purple, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>with New Page</div>
+            <h3 style={{ fontFamily: serif, fontWeight: 400, fontSize: 20, margin: "0 0 6px", color: T.text }}>Career Reading</h3>
+            <p style={{ ...body, fontSize: 14 }}>A long reading about your work: your work style, a draw cast before your question, all five charts read for your career, the next 30 days, and a tailored 4-week plan.</p>
+            <a href={(PREVIEW ? "/preview" : "") + "/career"} style={{ ...primary, padding: "10px 22px", fontSize: 13, marginTop: 14, display: "inline-block", textDecoration: "none" }}>start my reading ✦</a>
           </div>
         </div>
       </section>

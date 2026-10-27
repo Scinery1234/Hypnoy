@@ -42,6 +42,30 @@ const NOW_KEYS = { natal: ["personal"], vedic: ["personal"], "human-design": ["p
 
 export class ReadingInputError extends Error {}
 
+// Without a birth time, charts are set for midday. What depends on the time is
+// left out, and every step for that system is told so.
+const TIME_NOTE = {
+  natal: "Birth time unknown: this chart is set for midday. The Ascendant, Midheaven and houses depend on the birth time, so they're left out, and the Moon may be up to about 7° away from where it's shown. Don't rely on house placements.",
+  vedic: "Birth time unknown: this chart is set for midday. The Lagna, the houses and yogas that depend on them are left out. The Moon's nakshatra may differ, and because the dasha periods are timed from the Moon's exact position, their dates may be off by months or even a few years. Treat dasha timing as approximate and don't rely on house placements.",
+  "human-design": "Birth time unknown: this design is set for midday. The Moon's gates may differ, and occasionally another gate or the type can change, so hold the details lightly.",
+  "gene-keys": "Birth time unknown: this profile is set for midday. Lines can shift when the Sun is near a line boundary, and Moon-based placements may differ.",
+};
+function dropTimeSensitive(id, d) {
+  const keep = (t, fn) => { const tab = d.tabs.find(x => x.key === t); if (tab) tab.items = tab.items.filter(fn); };
+  if (id === "natal" || id === "vedic") d.tabs.forEach(t => t.items.forEach(it => { it.sub = it.sub.replace(/\b\d+(st|nd|rd|th) house\b( · )?/g, "").replace(/ · $/, ""); }));
+  const NO_ANGLES = it => !/Ascendant|Midheaven/.test(it.title);
+  if (id === "natal") {
+    d.tabs = d.tabs.filter(t => t.key !== "houses");
+    keep("big3", NO_ANGLES); keep("planets", NO_ANGLES); keep("aspects", NO_ANGLES);
+    d.forecast.forEach(day => { day.items = day.items.filter(it => !/Midheaven|Ascendant/.test(it.text)).map(it => ({ ...it, text: it.text.replace(/ \(natal .*?house\)$| \(natal [^)]*\)/, "") })); });
+  }
+  if (id === "vedic") {
+    keep("grahas", it => !/^Lagna/.test(it.title)); keep("nak", it => !/^Lagna/.test(it.title));
+    keep("yogas", it => !/Pancha Mahapurusha|Lagna|kendra from the Lagna/i.test(it.title + " " + it.role + " " + it.sub));
+    d.forecast.forEach(day => day.items.forEach(it => { it.text = it.text.replace(/your \d+\w\w from Lagna · /, "your "); }));
+  }
+}
+
 // ── Stage 0 + A + B inputs: all calculation, no AI ───────────────────────────
 // input = {person:{birthName, name, date, time, tz, lat, lon, place, timeUnknown?},
 //          answers, draw:{seed, castAt}, question:{text, askedAt}}
@@ -54,9 +78,11 @@ export function prepare(input) {
   const quiz = scoreQuiz(answers);
   const reading = divineReading(draw.seed);
   const systems = {};
+  const timeUnknown = !!person.timeUnknown;
   for (const id of SYSTEM_ORDER) {
-    const inp = parseChartInput({ ...person, system: id });
+    const inp = parseChartInput({ ...person, ...(timeUnknown ? { time: "12:00" } : {}), system: id });
     const d = careerData(inp, 30);
+    if (timeUnknown) dropTimeSensitive(id, d);
     const trad = traditionalCareer(id, d.tabs);
     d.tabs.forEach(t => t.items.forEach((it, i) => { it.career = trad.get(t.key + ":" + i) || null; it.ref = t.key + ":" + i; }));
     systems[id] = {
@@ -64,6 +90,7 @@ export function prepare(input) {
       chartText: chartToMarkdown(d.chartHTML),
       events: careerEvents(id, d.forecast),
       now: NOW_KEYS[id].map(k => String(d.readingData[k] || "")).filter(Boolean).join("\n"),
+      timeNote: timeUnknown ? TIME_NOTE[id] || "" : "",
     };
     delete systems[id].chartHTML;
   }
@@ -82,7 +109,7 @@ const cardLine = c => `${c.pos} (${POSITION_MEANING[c.pos]}): ${c.name}`;
 const hexLine = r => `Hexagram ${r.pHex} – ${r.pName}` + (r.rHex ? ` → ${r.rHex} – ${r.rName}` : "") + (r.changing.length ? `, changing lines ${r.changing.join(", ")}` : ", no changing lines");
 const drawData = r => hexLine(r) + "\nTarot, one card per position:\n" + r.cards.map(c => "- " + cardLine(c)).join("\n");
 const itemLine = it => [it.title, it.code, it.sub].filter(Boolean).join(" · ") + (it.role ? ` (${it.role})` : "");
-const factCards = S => S.badges.map(b => `${b.name}: ${b.value}`).join("; ") + "\n" +
+const factCards = S => (S.timeNote ? S.timeNote + "\n" : "") + S.badges.map(b => `${b.name}: ${b.value}`).join("; ") + "\n" +
   S.tabs.flatMap(t => t.items.filter(it => it.career).map(it => "- " + itemLine(it) + " — career: " + it.career)).join("\n");
 
 function compassText(q) {
@@ -157,7 +184,7 @@ export function buildSteps(ctx, opts = {}) {
   // C. Each chart on its own: every panel item, each tab overview, the chart's
   // careers reading, and its next 30 days. Nothing outside this system.
   for (const id of SYSTEM_ORDER) {
-    const S = ctx.systems[id], sys = VOICE[id] + " " + PLAIN;
+    const S = ctx.systems[id], sys = VOICE[id] + " " + PLAIN + (S.timeNote ? " " + S.timeNote : "");
     S.tabs.forEach(t => t.items.forEach((it, i) => steps.push(step(`${id}.item.${t.key}.${i}`, "C", it.career ? "main" : "quick", sys,
       `Below is one item from a person's ${S.label} chart, exactly as the chart guide describes it. You see only this item.\n\n---\n${it.prompt}\n---\n\n` +
       `This is for a careers report, so don't write the explanation asked for above. Instead:\ncareer: ${it.career ? "60-90 words" : "one or two sentences, at most 40 words,"} on what this item suggests for their work and career: strengths to use, conditions that suit them, or a trap to watch for.` +
@@ -245,18 +272,30 @@ export async function runSteps(steps, runner, { concurrency = 8, onProgress } = 
 export const answersRunner = answers => async st => answers[st.id] || { pending: true };
 
 // The API runner, using the same models and fallback settings as the oracle.
+// If the key can't use the fast model, its steps fall back to the main model.
 export function apiRunner(client, { model, quickModel, effort = "low" } = {}) {
-  return async st => {
+  let quickOk = true;
+  const call = async (st, quick) => {
     const res = await client.beta.messages.create({
-      model: st.model === "quick" ? quickModel : model,
-      max_tokens: st.model === "quick" ? 1000 : 6000,
+      model: quick ? quickModel : model,
+      max_tokens: quick ? 1000 : 6000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      output_config: { ...(st.model === "quick" ? {} : { effort }), format: { type: "json_schema", schema: st.schema } },
+      output_config: { ...(quick ? {} : { effort }), format: { type: "json_schema", schema: st.schema } },
       system: st.system,
       messages: [{ role: "user", content: st.user }],
     });
     if (res.stop_reason === "refusal") throw new Error("declined");
     return JSON.parse(res.content.filter(b => b.type === "text").map(b => b.text).join(""));
+  };
+  return async st => {
+    if (st.model !== "quick" || !quickOk) return call(st, false);
+    try { return await call(st, true); }
+    catch (err) {
+      if (!(err && (err.status === 404 || (err.status === 400 && /model/i.test(err.message || ""))))) throw err;
+      quickOk = false;
+      console.warn("Fast model unavailable (" + quickModel + "); career steps use " + model);
+      return call(st, false);
+    }
   };
 }

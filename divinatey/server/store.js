@@ -6,6 +6,7 @@
 // server restarts. AUTH_TEST_TOKENS=1 (tests only, never with Supabase) makes
 // the memory store accept bearer tokens of the form "test:<id>:<email>:<plan>".
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 
 const SLOTS = [1, 2];
 const PROFILE_FIELDS = "plan, plan_renews_at, stripe_customer_id, subscription_id, subscription_status, billing_interval, cancel_at_period_end, extra_questions";
@@ -78,6 +79,27 @@ function supabaseStore(url, serviceKey) {
     async recordLinked(userId, weekStart, seed) {
       must(await sb.from("linked_questions").upsert({ user_id: userId, week_start: weekStart, seed }, { ignoreDuplicates: true }));
     },
+    // Career Readings (one row per reading; see 0005_career_readings.sql).
+    async careerCreate(row) {
+      return must(await sb.from("career_readings").insert(row).select("*").single());
+    },
+    async careerGet(id) {
+      const rows = must(await sb.from("career_readings").select("*").eq("id", id).limit(1));
+      return rows[0] || null;
+    },
+    // Updates a reading; with `ifStatus`, only when it's still in that status. Returns the row, or null.
+    async careerUpdate(id, fields, ifStatus) {
+      let q = sb.from("career_readings").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", id);
+      if (ifStatus) q = q.in("status", [].concat(ifStatus));
+      const rows = must(await q.select("*"));
+      return rows[0] || null;
+    },
+    async careerPending() {
+      return must(await sb.from("career_readings").select("id").in("status", ["queued", "running"])).map(r => r.id);
+    },
+    async careerCleanup(before) {
+      must(await sb.from("career_readings").delete().lt("created_at", before));
+    },
   };
 }
 
@@ -87,6 +109,7 @@ function memoryStore({ testTokens }) {
   const linked = new Map();       // userId|weekStart → Set(seed)
   const profiles = new Map();     // userId → profile fields set by billing
   const events = new Set();
+  const readings = new Map();     // career reading id → row
   const prof = id => { if (!profiles.has(id)) profiles.set(id, {}); return profiles.get(id); };
   return {
     accounts: !!testTokens,
@@ -137,6 +160,22 @@ function memoryStore({ testTokens }) {
       if (!linked.has(k)) linked.set(k, new Set());
       linked.get(k).add(String(seed));
     },
+    async careerCreate(row) {
+      const now = new Date().toISOString();
+      const r = { status: "cast", asked_at: null, user_id: null, email: null, input: null, outputs: null, progress: null, report: null,
+        error: null, paid: false, preview: false, stripe_session: null, ...row, id: randomUUID(), created_at: now, updated_at: now };
+      readings.set(r.id, r);
+      return { ...r };
+    },
+    async careerGet(id) { const r = readings.get(id); return r ? structuredClone(r) : null; },
+    async careerUpdate(id, fields, ifStatus) {
+      const r = readings.get(id);
+      if (!r || (ifStatus && ![].concat(ifStatus).includes(r.status))) return null;
+      Object.assign(r, structuredClone(fields), { updated_at: new Date().toISOString() });
+      return structuredClone(r);
+    },
+    async careerPending() { return [...readings.values()].filter(r => r.status === "queued" || r.status === "running").map(r => r.id); },
+    async careerCleanup(before) { for (const [id, r] of readings) if (r.created_at < before) readings.delete(id); },
   };
 }
 

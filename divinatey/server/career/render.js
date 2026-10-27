@@ -8,9 +8,10 @@ import { SYSTEM_ORDER, POSITION_MEANING } from "./pipeline.js";
 const TRAD = "▲";   // traditionally read for career
 const PERS = "●";   // stands out in this chart
 
-export function renderMarkdown(ctx, out, { generatedAt = new Date().toISOString() } = {}) {
+// `missing`: what a reader sees where a step has no output (default: the step id, for development).
+export function renderMarkdown(ctx, out, { generatedAt = new Date().toISOString(), missing = null } = {}) {
   const get = (id, key) => { const o = out[id]; if (!o || o.pending || o.error) return null; return key ? o[key] : o; };
-  const or = (v, id) => (v == null || v === "" ? `_[Not generated yet: \`${id}\`]_` : v);
+  const or = (v, id) => (v == null || v === "" ? (missing ? `_${missing}_` : `_[Not generated yet: \`${id}\`]_`) : v);
   const q = ctx.quiz, w = q.where, Q = QUADRANTS[w.quadrant], r = ctx.draw.reading;
   const struggling = q.safety === "struggling";
   const who = ctx.person.name || "you";
@@ -98,7 +99,7 @@ export function renderMarkdown(ctx, out, { generatedAt = new Date().toISOString(
   SYSTEM_ORDER.forEach((id, n) => {
     const S = ctx.systems[id], c = get(`${id}.career`), m = get(`${id}.month`);
     p(`## ${5 + n}. ${S.label}`, `**${S.badges.map(b => `${b.name}: ${b.value}`).join(" · ")}**${S.header ? ` · ${S.header}` : ""}`,
-      `*Calculated on its own, and read without your quiz, question, draw or any other system.*`);
+      `*Calculated on its own, and read without your quiz, question, draw or any other system.*`, S.timeNote ? `> ${S.timeNote}` : "");
     const trad = S.tabs.flatMap(t => t.items.filter(it => it.career));
     p(`### Career highlights`, `**${TRAD} Traditionally read for career**`, trad.map(it => `- **${it.title}** · ${[it.code, it.sub].filter(Boolean).join(" · ")}: ${it.career}`).join("\n"),
       `**${PERS} What stands out in your chart**`, c ? c.highlights.map(h => `- **${h.title}:** ${h.why}`).join("\n") : or(null, `${id}.career`));

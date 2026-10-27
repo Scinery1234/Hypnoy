@@ -58,6 +58,29 @@ export function billingErrorText(err) {
   return "Couldn't open the payment page. Try again in a moment.";
 }
 export const getConfig = () => get("/api/config");
+
+// Career Readings: cast first, then submit; the reading id is its private link.
+export const careerConfig = () => get("/api/career/config");
+export const careerCast = () => call("POST", "/api/career/cast", {}, true);
+export const careerSubmit = (id, body) => post("/api/career/readings/" + id, body);
+export const careerStatus = id => get("/api/career/readings/" + id);
+export const careerCheckout = id => post("/api/career/readings/" + id + "/checkout");
+export const careerRetry = id => post("/api/career/readings/" + id + "/retry");
+export const careerReportUrl = id => "/api/career/readings/" + id + "/report.md";
+export function careerErrorText(err) {
+  const code = err && err.code;
+  if (code === "billing_off") return "Payments aren't switched on yet. Try the preview at /preview/career.";
+  if (code === "question_too_short") return "Write your question in a sentence or two.";
+  if (code === "invalid_email") return "That email address doesn't look right.";
+  if (code === "invalid birth name") return "Enter your full name at birth.";
+  if (code === "invalid date" || code === "invalid time") return "Check your birth date and time.";
+  if (code === "invalid timezone" || code === "invalid location") return "Choose your birth place from the list.";
+  if (code === "already_submitted") return "This reading has already been sent. Open it from its link.";
+  if (code === "wrong_mode") return "This draw was cast on the other version of the site. Start again here.";
+  if (code === "network" || code === "timeout" || code === "no_server") return "Couldn't reach Divinatey. Check your connection and try again.";
+  if (err && err.status === 429) return "Too many tries in a short time. Wait a few minutes and try again.";
+  return "Something went wrong. Try again in a moment.";
+}
 export const getMe = () => call("GET", "/api/me", undefined, true);
 export const saveChartSlot = (slot, body) => call("PUT", "/api/charts/" + slot, body, true);
 export const deleteChartSlot = slot => call("DELETE", "/api/charts/" + slot, undefined, true);

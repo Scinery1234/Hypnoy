@@ -5,6 +5,7 @@
 // Creates (or finds, by lookup key):
 //   • "Divinatey paid plan": $20/month (divinatey_monthly) and $180/year (divinatey_yearly)
 //   • "Extra question": $5 one-off (divinatey_extra_question)
+//   • "Career Reading": one-off (divinatey_career_reading), CAREER_READING_PRICE cents (default 4900)
 //   • a billing portal configuration (switch monthly/yearly, update card, cancel, invoices)
 //   • with PUBLIC_URL: a webhook endpoint at PUBLIC_URL/api/stripe/webhook, and prints its
 //     signing secret for STRIPE_WEBHOOK_SECRET (only shown when first created)
@@ -41,6 +42,11 @@ await price("divinatey_extra_question", async () => {
   return stripe.prices.create({ product: extra.id, currency: CURRENCY, unit_amount: 500, lookup_key: "divinatey_extra_question", nickname: "Extra question" });
 });
 
+await price("divinatey_career_reading", async () => {
+  const p = await stripe.products.create({ name: "Career Reading", description: "A long, personal careers reading: your work style, a draw cast before your question, five birth charts read for work, the next 30 days and a tailored 4-week plan." });
+  return stripe.prices.create({ product: p.id, currency: CURRENCY, unit_amount: Number(process.env.CAREER_READING_PRICE) || 4900, lookup_key: "divinatey_career_reading", nickname: "Career Reading" });
+});
+
 const configs = await stripe.billingPortal.configurations.list({ limit: 20 });
 const productId = productOf(monthly);
 const portalFeatures = {
@@ -67,7 +73,7 @@ if (existing) {
 if (process.env.PUBLIC_URL) {
   const url = process.env.PUBLIC_URL.replace(/\/+$/, "") + "/api/stripe/webhook";
   const hooks = await stripe.webhookEndpoints.list({ limit: 100 });
-  const events = ["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"];
+  const events = ["checkout.session.completed", "checkout.session.async_payment_succeeded", "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"];
   const hook = hooks.data.find(h => h.url === url);
   if (hook) {
     await stripe.webhookEndpoints.update(hook.id, { enabled_events: events });

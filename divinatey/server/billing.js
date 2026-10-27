@@ -1,18 +1,20 @@
-// Stripe billing: the paid plan ($20/month or $180/year) and $5 extra questions.
+// Stripe billing: the paid plan ($20/month or $180/year), $5 extra questions,
+// and one-off Career Readings (no account needed; the reading id travels in metadata).
 //
 // Prices are found by lookup key (created by scripts/stripe-setup.mjs), or set
 // directly with STRIPE_PRICE_MONTHLY / _YEARLY / _EXTRA. The webhook is the only
 // thing that turns the paid plan on or off.
 import Stripe from "stripe";
 
-export const PRICE_KEYS = { monthly: "divinatey_monthly", yearly: "divinatey_yearly", extra: "divinatey_extra_question" };
+export const PRICE_KEYS = { monthly: "divinatey_monthly", yearly: "divinatey_yearly", extra: "divinatey_extra_question", reading: "divinatey_career_reading" };
 const PAID_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 export class BillingError extends Error {
   constructor(status, code) { super(code); this.status = status; this.code = code; }
 }
 
-export function createBilling({ store, env = process.env }) {
+// hooks.readingPaid(readingId, session) is called when a Career Reading's checkout completes.
+export function createBilling({ store, env = process.env, hooks = {} }) {
   if (!env.STRIPE_SECRET_KEY) return null;
   const opts = {};
   if (env.STRIPE_API_BASE) {                 // tests: point the SDK at a local fake
@@ -23,7 +25,7 @@ export function createBilling({ store, env = process.env }) {
   const priceCache = {};
 
   async function priceId(kind) {
-    const direct = { monthly: env.STRIPE_PRICE_MONTHLY, yearly: env.STRIPE_PRICE_YEARLY, extra: env.STRIPE_PRICE_EXTRA }[kind];
+    const direct = { monthly: env.STRIPE_PRICE_MONTHLY, yearly: env.STRIPE_PRICE_YEARLY, extra: env.STRIPE_PRICE_EXTRA, reading: env.STRIPE_PRICE_READING }[kind];
     if (direct) return direct;
     if (!priceCache[kind]) {
       const list = await stripe.prices.list({ lookup_keys: [PRICE_KEYS[kind]], active: true, limit: 1 });
@@ -55,10 +57,36 @@ export function createBilling({ store, env = process.env }) {
     };
   }
 
+  let readingPrice = null;
   return {
+    hooks,
+    // The Career Reading's price, for showing on the page: {amount (cents), currency}.
+    async readingPrice() {
+      if (!readingPrice) {
+        const p = await stripe.prices.retrieve(await priceId("reading"));
+        readingPrice = { amount: p.unit_amount, currency: p.currency };
+      }
+      return readingPrice;
+    },
+
+    // A Stripe Checkout page for one Career Reading. Works without an account.
+    async checkoutReading({ readingId, email, returnUrl }) {
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: [{ price: await priceId("reading"), quantity: 1 }],
+        metadata: { kind: "career_reading", reading_id: readingId },
+        payment_intent_data: { metadata: { kind: "career_reading", reading_id: readingId } },
+        ...(email ? { customer_email: email } : {}),
+        allow_promotion_codes: true,
+        success_url: returnUrl + "?checkout=success",
+        cancel_url: returnUrl + "?checkout=cancelled",
+      });
+      return session;
+    },
+
     // A Stripe Checkout page for the plan or for one extra question.
     async checkout(user, kind, returnUrl) {
-      if (!PRICE_KEYS[kind]) throw new BillingError(400, "unknown plan");
+      if (!PRICE_KEYS[kind] || kind === "reading") throw new BillingError(400, "unknown plan");
       const profile = await store.getProfile(user.id, user);
       const subscribed = profile.plan === "paid" && profile.subscription_id;
       if (kind !== "extra" && subscribed) throw new BillingError(409, "already_subscribed");
@@ -94,7 +122,11 @@ export function createBilling({ store, env = process.env }) {
       if (await store.eventSeen(event.id)) return "duplicate";
       let result = "ignored";
       const o = event.data.object;
-      if (event.type === "checkout.session.completed") {
+      if ((event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") &&
+          o.metadata && o.metadata.kind === "career_reading") {
+        if (o.payment_status === "paid" && hooks.readingPaid) result = await hooks.readingPaid(o.metadata.reading_id, o);
+        else result = "career_reading_unpaid";
+      } else if (event.type === "checkout.session.completed") {
         const userId = o.client_reference_id || (o.metadata && o.metadata.user_id);
         if (userId && o.customer) await store.setCustomer(userId, o.customer);
         if (o.mode === "subscription" && o.subscription && userId) {

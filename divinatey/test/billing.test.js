@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn } from "node:child_process";
 import Stripe from "stripe";
+import fs from "node:fs";
 
 const SECRET = "whsec_test_secret";
 const calls = [];
@@ -22,6 +23,7 @@ before(async () => {
       calls.push({ method: req.method, path: u.pathname, query: u.search, body: new URLSearchParams(body) });
       res.setHeader("content-type", "application/json");
       const send = o => res.end(JSON.stringify(o));
+      if (u.pathname.startsWith("/v1/prices/")) return send({ id: u.pathname.slice(11), object: "price", unit_amount: 4900, currency: "usd" });
       if (u.pathname === "/v1/prices") return send({ object: "list", data: [{ id: "price_" + u.searchParams.get("lookup_keys[0]") }] });
       if (u.pathname === "/v1/customers") return send({ id: "cus_1", object: "customer" });
       if (u.pathname === "/v1/checkout/sessions") return send({ id: "cs_1", object: "checkout.session", url: "https://checkout.stripe.test/cs_1" });
@@ -33,7 +35,7 @@ before(async () => {
   await new Promise(r => fake.listen(0, r));
   const port = 22000 + Math.floor(Math.random() * 1000);
   base = "http://localhost:" + port;
-  const env = { ...process.env, PORT: String(port), ANTHROPIC_API_KEY: "test", AUTH_TEST_TOKENS: "1",
+  const env = { ...process.env, PORT: String(port), ANTHROPIC_API_KEY: "test", AUTH_TEST_TOKENS: "1", CAREER_RETRY_MS: "0", ANTHROPIC_BASE_URL: "http://localhost:9",
     STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: SECRET, STRIPE_API_BASE: "http://localhost:" + fake.address().port, PUBLIC_URL: "https://divinatey.test" };
   delete env.SUPABASE_URL; delete env.SUPABASE_SERVICE_ROLE_KEY; delete env.SUPABASE_SERVICE_KEY;
   server = spawn(process.execPath, ["server/index.js"], { env, stdio: ["ignore", "pipe", "inherit"] });
@@ -118,4 +120,29 @@ test("webhooks: signature checked, subscription turns the plan on and off, dupli
   me = (await call("GET", "/api/me", BUYER)).body;
   assert.equal(me.plan, "free");
   assert.equal(me.billing.subscribed, false);
+});
+
+test("career reading: price, a one-off checkout without an account, and the webhook starts it once", async () => {
+  const sample = JSON.parse(fs.readFileSync(new URL("../docs/career-reading/sample/input.json", import.meta.url)));
+  assert.deepEqual((await call("GET", "/api/career/config")).body.price, { amount: 4900, currency: "usd" });
+  const cast = await call("POST", "/api/career/cast");
+  const sub = await call("POST", "/api/career/readings/" + cast.body.id, null,
+    { person: sample.person, answers: sample.answers, question: sample.question.text, email: "jordan@example.com" });
+  assert.equal(sub.status, 200);
+  assert.equal(sub.body.status, "awaiting_payment");
+  assert.equal(sub.body.checkoutUrl, "https://checkout.stripe.test/cs_1");
+  const s = calls.filter(c => c.path === "/v1/checkout/sessions").at(-1).body;
+  assert.equal(s.get("mode"), "payment");
+  assert.equal(s.get("line_items[0][price]"), "price_divinatey_career_reading");
+  assert.equal(s.get("metadata[reading_id]"), cast.body.id);
+  assert.equal(s.get("customer_email"), "jordan@example.com");
+  assert.equal(s.get("success_url"), "https://divinatey.test/career/r/" + cast.body.id + "?checkout=success");
+  assert.equal((await call("POST", "/api/career/readings/" + cast.body.id + "/checkout")).body.url, "https://checkout.stripe.test/cs_1");
+
+  const session = { id: "cs_r", mode: "payment", payment_status: "unpaid", metadata: { kind: "career_reading", reading_id: cast.body.id } };
+  assert.equal((await webhook("checkout.session.completed", session)).body.result, "career_reading_unpaid");
+  assert.equal((await call("GET", "/api/career/readings/" + cast.body.id)).body.status, "awaiting_payment");
+  assert.equal((await webhook("checkout.session.async_payment_succeeded", { ...session, payment_status: "paid" })).body.result, "career_reading_started");
+  assert.notEqual((await call("GET", "/api/career/readings/" + cast.body.id)).body.status, "awaiting_payment");
+  assert.equal((await webhook("checkout.session.completed", { ...session, payment_status: "paid" })).body.result, "career_reading_already");
 });
