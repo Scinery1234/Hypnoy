@@ -268,6 +268,10 @@ function aspectItems(c){
 }
 const ov=(label,list)=>VOICE+' Write a 200–260 word overview of the '+label+' in one person’s natal chart, as one connected picture. Second person, warm, no headings or lists.\n\n'+list;
 
+// Plain-text forecast for reports (the same calculation as the transit page).
+const forecast=(c,days)=>aspectForecastText(tcfg(c),new Date(),days,{
+  personal:h=>`Transiting ${h.body} ${h.asp.name} natal ${NAME[h.pt.key]} (natal ${NAME[h.pt.key]} in your ${ORD(c.P[h.pt.key].house)} house; transiting ${h.body} in your ${ORD(houseOf(h.tLon,c.cusps))} house)`});
+
 window.SYSTEM={
   id:'natal',pageTitle:'Natal Astrology Chart',title:'Natal Chart',noun:'Chart',
   formTitle:'Natal Astrology Chart',formSub:'Tropical zodiac · Placidus houses · aspects, patterns and transits.',
@@ -277,7 +281,7 @@ window.SYSTEM={
   header:c=>`${c.houseSystem} houses`,
   badges:c=>[{n:SIGN_GLYPH[signIdx(c.P.Sun.lon)],h:'Sun',p:signPos(c.P.Sun.lon)},{n:SIGN_GLYPH[signIdx(c.P.Moon.lon)],h:'Moon',p:signPos(c.P.Moon.lon)},
     {n:SIGN_GLYPH[signIdx(c.asc)],h:'Rising',p:signPos(c.asc)}],
-  chartHTML,positionsHTML,transitsHTML,
+  chartHTML,positionsHTML,transitsHTML,forecast,
   reading:{title:'Transit Reading',sections:SECTIONS,data:readingData},
   guide:{title:'Chart Guide',fab:'Chart Guide',tabs:[
     {key:'big3',name:'Big Three',icon:'☀️',col:'#b07010',blurb:'Sun, Moon and Ascendant',items:bigThree,

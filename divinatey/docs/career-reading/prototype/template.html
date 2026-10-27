@@ -1,0 +1,497 @@
+<title>New Page Career Reading</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@600;700&family=Figtree:wght@400;500;600;700&family=Caveat:wght@600&display=swap">
+<style>
+/* Layout: one ruled notebook page with a red margin line. Flows are one 600px column;
+   the reading opens out to 1120px with the contents in a 280px left column. Light only (brand rule). */
+:root {
+  --ink: #15203B; --muted: #56607A; --paper: #FFFFFF; --paper-2: #F5F7FB;
+  --rule: #DCE3EE; --rule-line: #EDF1F7; --margin: #FF7A66; --note: #E0523D;
+  --hl: #D4F36B; --link: #1F4FD8; --error: #B42318; --track: #E9EEF6;
+  --recharge: #CDBDFF; --recharge-t: #EFEAFF; --explore: #A8DBFF; --explore-t: #E4F4FF;
+  --unstick: #FFC27A; --unstick-t: #FFF0DC; --launch: #C9EF6E; --launch-t: #EEF9D3;
+  --q: var(--hl); --q-t: var(--paper-2);
+  --display: 'Familjen Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --body: Figtree, ui-sans-serif, system-ui, sans-serif;
+  --hand: Caveat, 'Segoe Print', cursive;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  margin: 0; color: var(--ink); font: 17px/1.55 var(--body);
+  background: var(--paper) repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--rule-line) 31px, var(--rule-line) 32px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  min-height: 100vh;
+}
+.page { position: relative; max-width: 648px; margin: 0 auto; padding: 22px 0 64px 32px; min-height: 100vh; }
+.page.wide { max-width: 1152px; }
+.page::before { content: ""; position: absolute; top: 0; bottom: 0; left: 16px; width: 2px; background: var(--margin); opacity: .85; }
+a { color: var(--link); }
+:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; letter-spacing: -0.5px; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(38px, 9vw, 52px); letter-spacing: -1.5px; }
+h2 { font-size: clamp(26px, 5vw, 32px); }
+h3 { font-size: 20px; font-weight: 600; }
+p { margin: 0; }
+.hl { background: linear-gradient(transparent 56%, var(--hl) 56%, var(--hl) 92%, transparent 92%); }
+.note { font: 600 26px/1 var(--hand); color: var(--note); transform: rotate(-3deg); display: inline-block; align-self: flex-start; margin-bottom: 4px; }
+.label { font: 700 12px/1.2 var(--body); letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+.stack { display: flex; flex-direction: column; gap: 18px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+/* Header */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 34px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
+.logo b { font: 700 22px/1 var(--display); letter-spacing: -0.02em; display: block; }
+.logo small { font: 700 9px/1 var(--body); letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); display: block; margin-top: 3px; }
+.linkbtn { background: none; border: 0; color: var(--link); text-decoration: underline; font: 500 15px var(--body); min-height: 44px; padding: 0 4px; cursor: pointer; }
+
+/* Buttons and answers */
+.btn { background: var(--ink); color: #fff; border: 0; border-radius: 14px; min-height: 56px; padding: 10px 26px; font: 700 19px var(--display);
+  box-shadow: 0 4px 0 var(--q); cursor: pointer; transition: transform .08s, box-shadow .08s; }
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--q); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn2 { background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 14px; min-height: 52px; padding: 8px 22px; font: 700 17px var(--display); cursor: pointer; }
+.answers { display: flex; flex-direction: column; gap: 10px; }
+.ans { width: 100%; text-align: left; background: var(--paper); border: 1.5px solid var(--rule); border-radius: 14px; min-height: 56px; padding: 12px 16px;
+  font: 17px/1.35 var(--body); color: var(--ink); cursor: pointer; }
+.ans:hover { border-color: var(--ink); }
+.ans.on { background: var(--hl); border: 2px solid var(--ink); font-weight: 700; }
+
+/* Progress */
+.progress { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.bar { flex: 1; height: 8px; border-radius: 99px; background: var(--track); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ink); border-radius: 99px; transition: width .25s; }
+.progress span { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Compass pair */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pair div { background: var(--paper-2); border-radius: 12px; padding: 14px; font-size: 16px; min-width: 0; }
+.scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; background: var(--paper-2); border-radius: 16px; padding: 16px 8px 12px; }
+.dot { display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; font: 500 12px/1.25 var(--body); color: var(--muted); text-align: center; min-height: 44px; padding: 0; }
+.dot i { display: block; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--paper); }
+.dot.on i { background: var(--hl); border-width: 2.5px; }
+.dot.on { color: var(--ink); font-weight: 700; }
+
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-weight: 600; font-size: 15px; }
+.field input, .field textarea { font: 17px/1.4 var(--body); color: var(--ink); background: var(--paper); border: 1.5px solid var(--rule); border-radius: 14px; padding: 12px 14px; min-height: 52px; width: 100%; }
+.field input:focus, .field textarea:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 3px var(--hl); }
+.field textarea { min-height: 150px; resize: vertical; }
+.hint { font-size: 14px; color: var(--muted); }
+.check { display: flex; gap: 10px; align-items: center; font-size: 15px; min-height: 44px; }
+.check input { width: 20px; height: 20px; accent-color: var(--ink); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.err { color: var(--error); font-size: 15px; font-weight: 600; }
+
+/* Cards and panels */
+.card { background: var(--paper); border: 1.5px solid var(--rule); border-radius: 16px; padding: 18px; }
+.soft { background: var(--paper-2); border-radius: 16px; padding: 18px; }
+.feature { background: var(--paper); border: 2px solid var(--ink); border-radius: 16px; padding: 20px; box-shadow: 0 4px 0 var(--q); }
+.ticks { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; }
+.ticks li { position: relative; padding-left: 30px; }
+.ticks li::before { content: ""; position: absolute; left: 4px; top: 4px; width: 12px; height: 7px; border-left: 2.4px solid var(--ink); border-bottom: 2.4px solid var(--ink); transform: rotate(-45deg); }
+.support { border-left: 4px solid var(--margin); padding: 14px 16px; background: var(--paper-2); border-radius: 0 12px 12px 0; }
+.support b { font-variant-numeric: tabular-nums; }
+
+/* The sealed cast */
+.seal { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+.hexa { display: flex; flex-direction: column-reverse; gap: 6px; width: 66px; }
+.hexa i { height: 8px; background: var(--ink); border-radius: 2px; display: flex; justify-content: space-between; }
+.hexa i.yin { background: linear-gradient(90deg, var(--ink) 0 42%, transparent 42% 58%, var(--ink) 58%); }
+.hexa i.chg { outline: 2px solid var(--note); outline-offset: 2px; }
+.hexa.sealed i { background: var(--rule); }
+.cards7 { display: flex; gap: 6px; flex-wrap: wrap; }
+.cards7 span { width: 30px; height: 46px; border-radius: 5px; border: 1.5px solid var(--ink); background: repeating-linear-gradient(45deg, var(--paper-2) 0 4px, var(--rule) 4px 6px); }
+.drawlist { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 15px; }
+.drawlist dt { color: var(--muted); }
+.drawlist dd { margin: 0; font-weight: 600; }
+
+/* Generating */
+.lanes { display: flex; flex-direction: column; gap: 10px; }
+.lane { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 10px 14px; border: 1.5px solid var(--rule); border-radius: 12px; background: var(--paper); }
+.lane .st { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--rule); }
+.lane.run .st { border-color: var(--ink); border-top-color: transparent; animation: spin .9s linear infinite; }
+.lane.done .st { border: 0; background: var(--hl); position: relative; }
+.lane.done .st::after { content: ""; position: absolute; left: 5px; top: 4px; width: 8px; height: 5px; border-left: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: rotate(-45deg); }
+.lane b { font-weight: 600; font-size: 15px; }
+.lane small { display: block; color: var(--muted); font-size: 13px; }
+.lane em { font-style: normal; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lanehead { margin-top: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Result */
+.grid2x2 { width: 100%; max-width: 320px; aspect-ratio: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 4px; position: relative; }
+.grid2x2 div { border-radius: 10px; padding: 10px; font: 700 15px var(--display); display: flex; align-items: flex-start; }
+.grid2x2 .me-dot { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); border: 3px solid #fff; box-shadow: 0 0 0 1.5px var(--ink); transform: translate(-50%, 50%); }
+.axes { display: flex; justify-content: space-between; max-width: 320px; font-size: 12px; color: var(--muted); }
+.slider { display: flex; flex-direction: column; gap: 6px; }
+.slider .ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.slider .ends b { color: var(--ink); }
+.slider .track { position: relative; height: 10px; border-radius: 99px; background: var(--track); }
+.slider .fill { position: absolute; top: 0; bottom: 0; background: var(--ink); border-radius: 99px; }
+.slider .knob { position: absolute; top: 50%; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--ink); transform: translate(-50%, -50%); }
+.quad-name { font: 700 clamp(40px, 10vw, 56px)/1 var(--display); letter-spacing: -1.5px; }
+
+/* Reading */
+.reader { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 40px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 2px; padding-bottom: 20px; }
+.toc a { color: var(--ink); text-decoration: none; font-size: 14px; padding: 7px 10px; border-radius: 10px; line-height: 1.3; }
+.toc a:hover { background: var(--paper-2); }
+.toc a.cur { background: var(--hl); font-weight: 700; }
+.legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); padding: 10px; margin-top: 10px; border-top: 1.5px dashed var(--rule); }
+.banner { background: var(--paper-2); border-radius: 14px; padding: 14px 16px; font-size: 15px; display: flex; flex-direction: column; gap: 4px; }
+.md { min-width: 0; font-size: 17px; }
+.md > * + * { margin-top: 14px; }
+.md h1 { font-size: clamp(36px, 7vw, 48px); }
+.md h2 { margin-top: 48px; padding-top: 28px; border-top: 1.5px dashed var(--rule); scroll-margin-top: 16px; }
+.md h3 { margin-top: 30px; font-size: 22px; }
+.md h4 { margin-top: 22px; font: 600 18px/1.3 var(--display); }
+.md p, .md li { max-width: 68ch; }
+.md ul { padding-left: 22px; }
+.md li + li { margin-top: 6px; }
+.md li ul { margin-top: 6px; }
+.md li li { color: var(--muted); }
+.md blockquote { margin-left: 0; padding: 12px 16px; background: var(--paper-2); border-radius: 12px; border: 0; }
+.md blockquote p { max-width: none; }
+.md table { border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.md th { text-align: left; font: 700 12px var(--body); letter-spacing: .8px; text-transform: uppercase; color: var(--muted); border-bottom: 1.5px solid var(--rule); padding: 8px 10px; }
+.md td { border-bottom: 1px solid var(--rule); padding: 7px 10px; vertical-align: top; }
+.tablewrap { overflow-x: auto; max-width: 100%; }
+.md pre { background: var(--paper-2); border-radius: 12px; padding: 14px; overflow-x: auto; font: 14px/1.25 var(--mono); }
+.md code { font-family: var(--mono); font-size: .9em; }
+.md li.task { list-style: none; margin-left: -22px; display: flex; gap: 10px; align-items: flex-start; color: var(--ink); }
+.md li.task input { width: 20px; height: 20px; margin-top: 3px; accent-color: var(--ink); flex: none; }
+.mk { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; font-size: 11px; vertical-align: 1px; margin-right: 2px; }
+.mk.trad { background: var(--paper-2); border: 1.5px solid var(--ink); }
+.mk.pers { background: var(--hl); border: 1.5px solid var(--ink); }
+.md strong { font-weight: 700; }
+
+.foot { margin-top: 56px; padding-top: 18px; border-top: 1.5px dashed var(--rule); font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.foot b { color: var(--ink); }
+
+@media (max-width: 980px) {
+  .reader { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .toc { position: static; max-height: none; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .toc a { border: 1.5px solid var(--rule); border-radius: 99px; padding: 8px 12px; min-height: 40px; display: inline-flex; align-items: center; }
+  .legend { width: 100%; }
+}
+@media (max-width: 520px) {
+  .pair, .two { grid-template-columns: 1fr; }
+  .dot { font-size: 11px; }
+  .seal { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="page" id="page">
+  <header class="top">
+    <a class="logo" href="#" id="home" aria-label="new page, a career program by Vikashan">
+      <svg width="28" height="32" viewBox="0 0 32 36" aria-hidden="true"><path d="M3 2h18l8 8v24H3z" fill="#FFFFFF" stroke="#15203B" stroke-width="2.4" stroke-linejoin="round"/><path d="M21 2v8h8" fill="none" stroke="#15203B" stroke-width="2.4" stroke-linejoin="round"/><rect x="7" y="19" width="17" height="6" rx="2" fill="#D4F36B"/><path d="M8 29h11" stroke="#15203B" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <span><b>new page</b><small>A career program by Vikashan</small></span>
+    </a>
+    <button class="linkbtn" id="sampleLink" type="button">See a sample reading</button>
+  </header>
+  <main id="screen" aria-live="polite"></main>
+  <footer class="foot">
+    <span><b>Coaching, not therapy.</b> For people 18 and over. In crisis? Call Lifeline on <b>13 11 14</b>, any time. In an emergency, call <b>000</b>.</span>
+    <span>This reading is for reflection. It isn't a prediction or professional advice, and AI can be wrong.</span>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script>
+// ── Engine modules, inlined at build time from the server code ──
+/*__ENGINE__*/
+const SAMPLE_REPORT = /*__REPORT__*/"";
+const STEP_COUNTS = /*__STEPS__*/{};
+</script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const screen = $("#screen"), page = $("#page");
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = { get(k) { try { return JSON.parse(localStorage.getItem("cr:" + k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem("cr:" + k, JSON.stringify(v)); } catch (e) {} } };
+
+// ── The question sequence ──
+const S = { compass: {}, statements: Array(8).fill(null), situation: null, satisfied: null, wellbeing: null, birth: {}, draw: null, question: "", askedAt: null };
+const steps = [
+  ...COMPASS.map((q, i) => ({ kind: "compass", q, part: "How you like to work", n: i })),
+  ...STATEMENTS.map((q, i) => ({ kind: "statement", q, part: "Where you're at", n: i })),
+  { kind: "situation", part: "Your situation" },
+  { kind: "satisfied", part: "Your situation", when: () => asksSatisfaction(S.situation) },
+  { kind: "wellbeing", part: "How you've been" },
+];
+const visible = () => steps.filter(s => !s.when || s.when());
+let at = 0;
+
+function progress(i) {
+  const v = visible(), total = v.length;
+  return `<div class="progress"><div class="bar" aria-hidden="true"><i style="width:${Math.round((i / total) * 100)}%"></i></div><span>${i + 1} of ${total}</span></div>`;
+}
+function back(fn) { return `<button class="linkbtn" type="button" data-back>Back</button>`; }
+function go(fn) { window.scrollTo({ top: 0 }); fn(); }
+
+function start() {
+  setQ(null); page.classList.remove("wide");
+  screen.innerHTML = `<section class="stack" style="gap:26px">
+    <div class="stack" style="gap:12px"><span class="label">Career Reading</span><span class="note">about 8 minutes</span>
+    <h1>Your career, read <span class="hl">five ways</span>.</h1></div>
+    <p>A long, personal reading about your work: how you like to work and where you're at right now, a draw cast before you ask your question, five birth charts read for your career, the next 30 days, and a 4-week plan made for you.</p>
+    <ul class="ticks">
+      <li>22 quick questions about how you work and how you're going</li>
+      <li>Your full name at birth, and your birth date, time and place</li>
+      <li>An I Ching and Tarot draw, cast and sealed before you type your question</li>
+      <li>Natal and Vedic astrology, Human Design, Gene Keys and Numerology, each read on its own</li>
+      <li>Your question answered, and a tailored 4-week plan</li>
+    </ul>
+    <div class="row"><button class="btn" id="go" type="button">Let's start</button></div>
+    <p class="small muted">There are no right answers. Go with your first instinct. For people 18 and over. This is coaching, not therapy. If you're going through a hard time, <button class="linkbtn small" type="button" id="sup" style="min-height:0;padding:0">support is available any time</button>.</p>
+  </section>`;
+  $("#go").onclick = () => go(() => question(0));
+  $("#sup").onclick = () => go(() => support(false));
+}
+
+function question(i) {
+  const v = visible(); at = i;
+  if (i >= v.length) return go(S.wellbeing === 4 ? () => support(true) : birth);
+  const st = v[i];
+  let body = "";
+  if (st.kind === "compass") {
+    const val = S.compass[st.q.id];
+    const sizes = [34, 26, 18, 26, 34];
+    body = `<h2 style="font-size:24px">Which is more like you?</h2>
+      <div class="pair"><div><span class="label">Left</span><br>${esc(st.q.left)}</div><div><span class="label">Right</span><br>${esc(st.q.right)}</div></div>
+      <div class="scale" role="radiogroup" aria-label="Where you sit between the two">${COMPASS_SCALE.map((t, k) => `<button class="dot${val === k - 2 ? " on" : ""}" type="button" role="radio" aria-checked="${val === k - 2}" data-v="${k - 2}"><i style="width:${sizes[k]}px;height:${sizes[k]}px"></i>${esc(t)}</button>`).join("")}</div>
+      <p class="hint">Answer for how you naturally prefer to work, not how you have to right now.</p>`;
+  } else if (st.kind === "statement") {
+    const val = S.statements[st.n];
+    body = `<p class="label">How much is this like you right now?</p><h2>${esc(st.q.text)}</h2>
+      <div class="answers">${LIKE.map((t, k) => `<button class="ans${val === k + 1 ? " on" : ""}" type="button" data-v="${k + 1}">${esc(t)}</button>`).join("")}</div>`;
+  } else if (st.kind === "situation") {
+    body = `<h2>Which fits you best right now?</h2><div class="answers">${SITUATIONS.map((t, k) => `<button class="ans${S.situation === k ? " on" : ""}" type="button" data-v="${k}">${esc(t)}</button>`).join("")}</div>`;
+  } else if (st.kind === "satisfied") {
+    body = `<p class="label">How much is this like you right now?</p><h2>I'm satisfied with my job.</h2><div class="answers">${LIKE.map((t, k) => `<button class="ans${S.satisfied === k + 1 ? " on" : ""}" type="button" data-v="${k + 1}">${esc(t)}</button>`).join("")}</div>`;
+  } else {
+    body = `<h2>Over the last couple of weeks, how have you been feeling overall?</h2><div class="answers">${WELLBEING.map((t, k) => `<button class="ans${S.wellbeing === k ? " on" : ""}" type="button" data-v="${k}">${esc(t)}</button>`).join("")}</div>`;
+  }
+  screen.innerHTML = `${progress(i)}<section class="stack"><span class="label">${esc(st.part)}</span>${body}<div>${back()}</div></section>`;
+  screen.querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
+    const v2 = +b.dataset.v;
+    if (st.kind === "compass") S.compass[st.q.id] = v2;
+    else if (st.kind === "statement") S.statements[st.n] = v2;
+    else if (st.kind === "situation") { S.situation = v2; if (!asksSatisfaction(v2)) S.satisfied = null; }
+    else if (st.kind === "satisfied") S.satisfied = v2;
+    else S.wellbeing = v2;
+    b.classList.add("on");
+    setTimeout(() => go(() => question(i + 1)), 160);
+  });
+  screen.querySelector("[data-back]").onclick = () => go(i === 0 ? start : () => question(i - 1));
+}
+
+function support(fromQuiz) {
+  screen.innerHTML = `<section class="stack">
+    <h2>Thanks for being honest.</h2>
+    <p>It sounds like things are really hard right now. Your career can wait. Talking to someone today matters more.</p>
+    <div class="support stack" style="gap:8px">
+      <span>Lifeline: <b>13 11 14</b> (24/7)</span><span>Beyond Blue: <b>1300 22 4636</b></span>
+      <span>13YARN: <b>13 92 76</b> (Aboriginal and Torres Strait Islander crisis support)</span><span>Emergency: <b>000</b></span>
+    </div>
+    <div class="row">${fromQuiz ? `<button class="btn" type="button" id="cont">Continue to my reading</button>` : ""}<button class="btn2" type="button" id="later">I'll come back later</button></div>
+    ${fromQuiz ? `<p class="small muted">If you continue, your reading won't include any New Page offers.</p>` : ""}
+  </section>`;
+  if (fromQuiz) $("#cont").onclick = () => go(birth);
+  $("#later").onclick = () => go(start);
+}
+
+function birth() {
+  const b = S.birth;
+  screen.innerHTML = `<section class="stack">
+    <span class="label">Your birth details</span><h2>Now, when and where it all started</h2>
+    <p class="muted">Your charts are calculated from these. Numerology uses your full name at birth; the AI readings only ever see the resulting numbers.</p>
+    <form id="bf" class="stack" novalidate>
+      <div class="field"><label for="bname">Full name at birth</label><input id="bname" autocomplete="off" maxlength="100" value="${esc(b.birthName || "")}" placeholder="Every first, middle and last name you were given"></div>
+      <div class="field"><label for="cname">Name you use now (optional)</label><input id="cname" maxlength="60" value="${esc(b.name || "")}" placeholder="If it's different"></div>
+      <div class="two">
+        <div class="field"><label for="bdate">Birth date</label><input id="bdate" type="date" value="${esc(b.date || "")}"></div>
+        <div class="field"><label for="btime">Birth time</label><input id="btime" type="time" value="${esc(b.time || "12:00")}" ${b.timeUnknown ? "disabled" : ""}></div>
+      </div>
+      <label class="check"><input type="checkbox" id="tunk" ${b.timeUnknown ? "checked" : ""}> I don't know my birth time</label>
+      <div class="field"><label for="bplace">Birth place</label><input id="bplace" value="${esc(b.place || "")}" placeholder="Start typing a town or city"><span class="hint">In the app this searches 111,000 places and fills in the timezone and coordinates.</span></div>
+      <p class="err" id="berr" role="alert" hidden></p>
+      <div class="row"><button class="btn" type="submit">Next: cast your draw</button></div>
+    </form><div>${back()}</div></section>`;
+  $("#tunk").onchange = e => { $("#btime").disabled = e.target.checked; };
+  $("#bf").onsubmit = e => {
+    e.preventDefault();
+    const nb = { birthName: $("#bname").value.trim(), name: $("#cname").value.trim(), date: $("#bdate").value, time: $("#btime").value || "12:00", timeUnknown: $("#tunk").checked, place: $("#bplace").value.trim() };
+    const err = !/[a-z]/i.test(nb.birthName.normalize("NFD")) ? "Enter your full name at birth." : !nb.date ? "Enter your birth date." : !nb.place ? "Enter your birth place." : "";
+    if (err) { const el = $("#berr"); el.textContent = err; el.hidden = false; return; }
+    S.birth = nb; go(cast);
+  };
+  screen.querySelector("[data-back]").onclick = () => go(() => question(visible().length - 1));
+}
+
+function hexHTML(r, sealed) {
+  const lines = r ? r.lines : [7, 8, 7, 8, 7, 8];
+  return `<div class="hexa${sealed ? " sealed" : ""}" aria-hidden="true">${lines.map(n => `<i class="${n % 2 ? "" : "yin"}${!sealed && (n === 6 || n === 9) ? " chg" : ""}"></i>`).join("")}</div>`;
+}
+function cast() {
+  const sealed = S.draw;
+  screen.innerHTML = `<section class="stack">
+    <span class="label">The cast</span><h2>We cast your draw <span class="hl">before</span> you ask.</h2>
+    <p>Your I Ching hexagram and seven Tarot cards are drawn from this moment, then sealed. Your question comes next, so it can't steer the cards. You'll see them in your reading, so they can't steer your question either.</p>
+    <div class="card seal">${hexHTML(null, true)}<div class="stack" style="gap:10px">
+      <div class="cards7" aria-hidden="true">${"<span></span>".repeat(7)}</div>
+      <p class="small" id="sealtext">${sealed ? `Sealed at <b>${new Date(sealed.castAt).toLocaleTimeString()}</b>.` : "Not cast yet."}</p></div></div>
+    <div class="row">${sealed ? `<button class="btn" type="button" id="next">Next: your question</button>` : `<button class="btn" type="button" id="castbtn">Cast my draw</button>`}</div>
+    <div>${back()}</div></section>`;
+  if (!sealed) $("#castbtn").onclick = () => {
+    const a = new Uint32Array(1); crypto.getRandomValues(a);
+    const seed = 1 + (a[0] % (MAX_SEED - 2));
+    S.draw = { seed, castAt: new Date().toISOString(), reading: divineReading(seed) };
+    cast();
+  };
+  else $("#next").onclick = () => go(ask);
+  screen.querySelector("[data-back]").onclick = () => go(birth);
+}
+
+function ask() {
+  screen.innerHTML = `<section class="stack">
+    <span class="label">Your question</span><h2>What do you want to know about your work?</h2>
+    <form id="qf" class="stack" novalidate>
+      <div class="field"><label for="qtext">Your question</label><textarea id="qtext" maxlength="1200" placeholder="For example: should I leave my job this year to start my own practice, or push for a bigger role where I am first?">${esc(S.question)}</textarea>
+      <span class="hint">Be specific. Name the decision, the options and any timing that matters.</span></div>
+      <p class="err" id="qerr" role="alert" hidden></p>
+      <div class="row"><button class="btn" type="submit">Make my reading</button></div>
+    </form><div>${back()}</div></section>`;
+  $("#qf").onsubmit = e => {
+    e.preventDefault();
+    const t = $("#qtext").value.trim();
+    if (t.length < 10) { const el = $("#qerr"); el.textContent = "Write your question in a sentence or two."; el.hidden = false; return; }
+    S.question = t; S.askedAt = new Date().toISOString();
+    if (detectCrisis(t)) return go(() => support(true));
+    go(generate);
+  };
+  screen.querySelector("[data-back]").onclick = () => go(cast);
+}
+
+// ── Generating: the real stages, run in parallel lanes ──
+function generate() {
+  const L = STEP_COUNTS;
+  const lanes = [
+    { head: "Stage 1 · The draw (cast before your question)" },
+    { id: "A", name: "I Ching and seven cards", sub: "Each card read on its own, then for careers in general", n: L.A },
+    { head: "Stage 2 · Your question" },
+    { id: "B", name: "The draw applied to your question", sub: "The cast was already sealed", n: L.B },
+    { head: "Stage 3 · Your charts, each on its own" },
+    ...["natal", "vedic", "human-design", "gene-keys", "numerology"].map(k => ({ id: k, name: L.labels[k], sub: `${L.items[k]} points, ${L.overviews[k]} overviews, a careers reading and the next 30 days`, n: L.sys[k] })),
+    { head: "Stage 4 · Across all five" },
+    { id: "D", name: "Profile, where you are now, the month ahead, your answer and your plan", sub: "From the charts' data, never from another section's words", n: L.D },
+  ];
+  const total = lanes.filter(l => l.id).reduce((a, l) => a + l.n, 0);
+  screen.innerHTML = `<section class="stack">
+    <span class="label">Making your reading</span><h2>${total} separate pieces of writing, one at a time</h2>
+    <p class="muted">Every section comes from its own fresh request, built only from what that section may see. In the live version this takes about five minutes, and we email you when it's ready. This prototype runs it at speed.</p>
+    <div class="lanes">${lanes.map((l, i) => l.head ? `<p class="label lanehead">${esc(l.head)}</p>` :
+      `<div class="lane" id="lane${i}"><span class="st"></span><span><b>${esc(l.name)}</b><small>${esc(l.sub)}</small></span><em><span class="c">0</span>/${l.n}</em></div>`).join("")}</div>
+  </section>`;
+  const run = lanes.map((l, i) => ({ ...l, i })).filter(l => l.id);
+  const order = [["A", "natal", "vedic", "human-design", "gene-keys", "numerology"], ["B"], ["D"]];
+  const fast = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const tick = (l, ms) => new Promise(res => {
+    const el = $("#lane" + l.i), c = el.querySelector(".c"); el.classList.add("run"); let k = 0;
+    const t = setInterval(() => { k = Math.min(l.n, k + Math.max(1, Math.ceil(l.n / 14))); c.textContent = k; if (k >= l.n) { clearInterval(t); el.classList.remove("run"); el.classList.add("done"); res(); } }, fast ? 5 : ms / 14);
+  });
+  (async () => {
+    for (const group of order) await Promise.all(group.map(id => tick(run.find(l => l.id === id), id === "D" ? 2200 : 2600 + Math.random() * 1200)));
+    setTimeout(() => go(result), fast ? 0 : 500);
+  })();
+}
+
+// ── Their own result (scored here with the server's scoring code) ──
+const QCOL = { Recharge: ["--recharge", "--recharge-t"], Explore: ["--explore", "--explore-t"], Unstick: ["--unstick", "--unstick-t"], Launch: ["--launch", "--launch-t"] };
+function setQ(q) {
+  const r = document.documentElement.style;
+  if (!q) { r.removeProperty("--q"); r.removeProperty("--q-t"); return; }
+  r.setProperty("--q", `var(${QCOL[q][0]})`); r.setProperty("--q-t", `var(${QCOL[q][1]})`);
+}
+function gridHTML(w) {
+  const cell = (name, full) => `<div style="background:var(${full ? QCOL[name][0] : QCOL[name][1]})">${name}</div>`;
+  return `<div class="grid2x2" role="img" aria-label="You're in ${w.quadrant}: clarity ${w.clarity} of 16, capacity ${w.capacity} of 16">
+    ${cell("Unstick", w.quadrant === "Unstick")}${cell("Launch", w.quadrant === "Launch")}${cell("Recharge", w.quadrant === "Recharge")}${cell("Explore", w.quadrant === "Explore")}
+    <span class="me-dot" style="left:${(w.dot.x * 100).toFixed(1)}%;bottom:${(w.dot.y * 100).toFixed(1)}%"></span></div>
+    <p class="small muted">Clarity runs up, capacity runs right. Clarity ${w.clarity} of 16, capacity ${w.capacity} of 16.</p>`;
+}
+function sliderHTML(pol, l) {
+  const P = POLARITIES[pol], pos = l.pos * 100, from = Math.min(50, pos), to = Math.max(50, pos);
+  return `<div class="slider"><div class="ends"><span><b>${P.a}</b> ${SIDES[P.a].name}</span><span>${l.band}</span><span>${SIDES[P.b].name} <b>${P.b}</b></span></div>
+    <div class="track"><span class="fill" style="left:${from}%;right:${100 - to}%"></span><span class="knob" style="left:${pos}%"></span></div></div>`;
+}
+function result() {
+  let sc;
+  try { sc = scoreQuiz({ compass: S.compass, statements: S.statements, situation: S.situation, satisfied: S.satisfied, wellbeing: S.wellbeing }); }
+  catch (e) { return start(); }
+  const w = sc.where, Q = QUADRANTS[w.quadrant], c = sc.compass, r = S.draw.reading;
+  setQ(w.quadrant);
+  screen.innerHTML = `<section class="stack" style="gap:28px">
+    <div class="stack" style="gap:10px"><span class="note">your reading is ready</span><span class="label">Where you're at</span>
+      <p class="quad-name">You're in <span style="background:linear-gradient(transparent 56%, var(--q) 56%, var(--q) 92%, transparent 92%)">${w.quadrant}</span>.</p>
+      <p><b>${esc(Q.tagline)}</b></p></div>
+    ${gridHTML(w)}
+    <p>${esc(Q.means)}</p>
+    <div class="soft stack" style="gap:6px"><span class="label">Your first-week step</span><p>${esc(Q.first)}</p></div>
+    <div class="stack"><span class="label">How you like to work · ${esc(c.code)}</span>
+      ${["energy", "information", "decisions", "structure"].map(p => sliderHTML(p, c.leans[p])).join("")}
+      <p><b>${c.styles.map(s => STYLES[s].name).join(" or ")}.</b> ${esc(STYLES[c.styles[0]].line)}</p></div>
+    <div class="card stack" style="gap:12px"><span class="label">Your draw, unsealed</span>
+      <div class="seal">${hexHTML(r, false)}<dl class="drawlist"><dt>I Ching</dt><dd>${r.pHex} ${esc(r.pName)}${r.rHex ? " → " + r.rHex + " " + esc(r.rName) : ""}</dd>
+      ${r.cards.map((k, i) => `<dt>${i + 1}. ${esc(k.pos)}</dt><dd>${esc(k.name)}</dd>`).join("")}</dl></div>
+      <p class="small muted">Cast ${new Date(S.draw.castAt).toLocaleTimeString()}, question asked ${new Date(S.askedAt).toLocaleTimeString()}.</p></div>
+    <div class="feature stack" style="gap:12px"><h3>Your full reading</h3>
+      <p>The full reading reads your five charts, this draw and your question in about 27,000 words. This prototype can't calculate charts or call the AI, so it opens a sample reading instead: Jordan Park, a fictional policy adviser in Unstick. Your scores above are real.</p>
+      <div class="row"><button class="btn" type="button" id="open">Open the sample reading</button></div></div>
+    ${sc.safety === "low" ? `<p class="small muted">You mentioned you've been feeling low. Go easy on yourself with this plan, and if things get heavier, Lifeline is there on 13 11 14, any time.</p>` : ""}
+    <div><button class="linkbtn" type="button" id="again">Start again</button></div>
+  </section>`;
+  $("#open").onclick = () => go(reading);
+  $("#again").onclick = () => { Object.assign(S, { compass: {}, statements: Array(8).fill(null), situation: null, satisfied: null, wellbeing: null, draw: null, question: "" }); go(start); };
+}
+
+// ── The sample reading ──
+function reading() {
+  setQ("Unstick"); page.classList.add("wide");
+  const html = marked.parse(SAMPLE_REPORT, { gfm: true, headerIds: false, mangle: false });
+  screen.innerHTML = `<div class="reader"><nav class="toc" id="toc" aria-label="Contents"></nav>
+    <article class="md" id="md"><div class="banner"><span class="label">Sample reading</span><span>Jordan Park is fictional. The charts, the draw and the dates are calculated; the writing was produced step by step from each step's own prompt to test the format.</span></div>${html}</article></div>`;
+  const md = $("#md"), toc = $("#toc");
+  md.querySelectorAll("table").forEach(t => { const w = document.createElement("div"); w.className = "tablewrap"; t.parentNode.insertBefore(w, t); w.appendChild(t); });
+  const walk = document.createTreeWalker(md, NodeFilter.SHOW_TEXT);
+  const hits = []; while (walk.nextNode()) if (/[▲●]/.test(walk.currentNode.nodeValue)) hits.push(walk.currentNode);
+  hits.forEach(n => { const span = document.createElement("span"); span.innerHTML = esc(n.nodeValue).replace(/▲/g, '<span class="mk trad" title="Traditionally read for career">▲</span>').replace(/●/g, '<span class="mk pers" title="Stands out in this chart">●</span>'); n.replaceWith(span); });
+  const saved = store.get("ticks") || {};
+  md.querySelectorAll('li input[type="checkbox"]').forEach((cb, i) => { cb.disabled = false; cb.id = "tick" + i; cb.checked = !!saved[i]; cb.closest("li").classList.add("task");
+    cb.setAttribute("aria-label", "Done: " + cb.closest("li").textContent.trim().slice(0, 60));
+    cb.onchange = () => { saved[i] = cb.checked; store.set("ticks", saved); }; });
+  const hs = [...md.querySelectorAll("h2")];
+  hs.forEach((h, i) => { h.id = "s" + i; });
+  toc.innerHTML = `<span class="label" style="padding:0 10px 8px">Contents</span>` + hs.map((h, i) => `<a href="#s${i}" data-i="${i}">${esc(h.textContent)}</a>`).join("") +
+    `<div class="legend"><span><span class="mk trad">▲</span> traditionally read for career</span><span><span class="mk pers">●</span> stands out in this chart</span><button class="linkbtn" type="button" id="toStart" style="text-align:left;padding:0">Take the questions</button></div>`;
+  toc.querySelectorAll("a").forEach(a => a.onclick = e => { e.preventDefault(); $("#" + a.getAttribute("href").slice(1)).scrollIntoView({ behavior: "smooth" }); });
+  $("#toStart").onclick = () => go(start);
+  const links = [...toc.querySelectorAll("a")];
+  const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) links.forEach(l => l.classList.toggle("cur", l.dataset.i === en.target.id.slice(1))); }), { rootMargin: "0px 0px -75% 0px" });
+  hs.forEach(h => io.observe(h));
+}
+
+$("#home").onclick = e => { e.preventDefault(); go(start); };
+$("#sampleLink").onclick = () => go(reading);
+start();
+})();
+</script>

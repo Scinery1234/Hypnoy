@@ -1,0 +1,69 @@
+{
+  "draw.iching.general": {
+    "primary": "Fellowship asks people to meet in the open, around a shared aim rather than private loyalties. It favours honest alliances and common ground, and it warns against cliques: real fellowship has nothing to hide.",
+    "lines": "The fourth line climbs onto the wall but does not attack. Seeing that a fight would be wrong, it turns back, and that turning back is what brings good fortune.",
+    "resulting": "Fellowship moves into The Family: the wider circle comes home to clear roles and right relationships close by. Order in the inner circle is what lets influence spread outward."
+  },
+  "draw.card.1.general": {
+    "insight": "The Six of Pentacles shows giving and receiving held in balance: one figure weighs out coins while others ask. In the place of the self, it describes someone who has resources to share, and who is asked to notice whether the exchange is fair in both directions."
+  },
+  "draw.card.2.general": {
+    "insight": "Temperance pours water steadily between two cups, mixing rather than choosing. What matters most here is balance, patience and finding the blend that works, not rushing to an extreme."
+  },
+  "draw.card.3.general": {
+    "insight": "The Queen of Swords sits upright, sword raised, looking clearly at what is in front of her. The desire underneath is for clear sight, an honest voice and the independence to judge for yourself."
+  },
+  "draw.card.4.general": {
+    "insight": "The Two of Wands stands on a castle wall holding a globe, looking out at a world they have planned but not yet entered. As the obstacle, it is the comfort of planning: staying at the window when the next step is to walk out the door."
+  },
+  "draw.card.5.general": {
+    "insight": "The Ace of Cups is an open heart, overflowing. Showing up this way means leading with feeling and generosity, letting what you care about be seen rather than kept safely behind good judgement."
+  },
+  "draw.card.6.general": {
+    "insight": "The Wheel of Fortune turns whether we push it or not. The action it asks for is to notice which way the wheel is turning and move with it, taking the opening while it is open."
+  },
+  "draw.card.7.general": {
+    "insight": "The Nine of Wands stands guard, tired but still upright, with the last stretch ahead. The next step is to hold your ground and keep going, while protecting the energy you have left."
+  },
+  "draw.iching.career": {
+    "reading": "For work, Fellowship favours open alliances: projects, partnerships and networks built around a shared purpose, where everyone can see the terms. The changing line counsels against forcing a confrontation, with a rival, a boss or an institution; stepping back from a fight you can't win cleanly is the stronger move. The movement into The Family brings it home: careers built on clear roles and trusted close relationships tend to last, so get your own base in order before you widen the circle."
+  },
+  "draw.card.1.career": {
+    "reading": "At work, the Six of Pentacles is someone whose skills and knowledge are a resource others draw on. It raises the question of exchange: are you paid and recognised fairly for what you give, or do you give generously and leave the terms vague?"
+  },
+  "draw.card.2.career": {
+    "reading": "What matters most for work right now is balance: blending two paths, two roles or two speeds rather than lurching from one to the other. Temperance favours careful, staged changes and a pace you can sustain."
+  },
+  "draw.card.3.career": {
+    "reading": "The career desire underneath is for autonomy and a clear voice: to be the person whose judgement is trusted and who says what they see. It points to work where expertise, independence and honest advice are the product."
+  },
+  "draw.card.4.career": {
+    "reading": "The obstacle is staying in the planning phase. The Two of Wands has mapped the future and knows the options, but the plan can become a safe place to wait; at work this looks like research, scenarios and spreadsheets in place of a first real step."
+  },
+  "draw.card.5.career": {
+    "reading": "To get past the obstacle, bring warmth and genuine care into how you work and how you present yourself. People hire and promote those whose commitment they can feel, not only those who are right."
+  },
+  "draw.card.6.career": {
+    "reading": "The Wheel of Fortune says timing is part of the answer. In careers it often marks a turning point, a cycle ending or a door opening, and the action is to recognise the turn and act within it rather than waiting for certainty."
+  },
+  "draw.card.7.career": {
+    "reading": "The next step is persistence with boundaries. The Nine of Wands at work is the last stretch of a long effort: keep going, but guard your time and energy so you arrive with something left."
+  },
+  "draw.career": {
+    "theme": "Open the door you've planned, at a pace you can keep",
+    "reading": "Read for work in general, this draw tells one story. It starts with someone who has a great deal to give (Six of Pentacles) and asks whether the exchange is fair: what you offer, and what comes back. What matters most is balance (Temperance): a blend, a staged change, a pace that can last. The desire underneath is for a clear, independent voice (Queen of Swords), the kind of work where your judgement is the thing people value.\n\nThe obstacle is a familiar one at work: the plan has been made, the globe is in hand, and the planning has become a comfortable place to stay (Two of Wands). The way past it isn't more analysis; it's showing up with an open heart (Ace of Cups), letting people see what you care about. The action is to notice the turn of the wheel and move with it (Wheel of Fortune), and the next step is endurance with boundaries (Nine of Wands): keep going, but protect your energy.\n\nThe I Ching agrees and adds a caution. Fellowship favours open alliances and shared purpose, the changing line says don't pick a fight you can't win cleanly, and the move to The Family says get your own base in order first. Together: build your circle, set fair terms, and take the real step you've been planning."
+  },
+  "draw.question": {
+    "cards": [
+      { "pos": "Who Am I?", "reading": "After eight years advising, you are the person others draw on: your knowledge has been a resource handed out across a large organisation. The Six of Pentacles asks you to look at the exchange honestly. Consulting would turn that giving into something priced and named; staying would mean asking whether your current role pays back what you give." },
+      { "pos": "What's Important?", "reading": "Temperance doesn't pick a side between leaving and staying; it mixes them. What matters most is a sustainable blend: a staged move, testing consulting work while you still have a base, or a bigger role that includes the independence you want." },
+      { "pos": "What Do I Want?", "reading": "Underneath the question is a wish for your own voice and your own judgement to be the product. The Queen of Swords wants to advise without filtering everything through a chain of approvals, and to be paid for clear thinking." },
+      { "pos": "What's In the Way?", "reading": "The obstacle is that you have already planned this, perhaps many times. The Two of Wands holds the globe of your consulting practice and keeps looking at it from the safety of the wall. More planning won't settle the question; a small real test will." },
+      { "pos": "How Do I Show Up?", "reading": "Show up with heart, not only expertise. In conversations with possible clients, or with the people who'd decide a bigger role, let them see what you care about in the work. That's what makes people want to bring you in." },
+      { "pos": "What Do I Do?", "reading": "Watch the timing and act on the turn. The Wheel suggests a door is opening or a cycle is closing for you this year; your task is to notice which, and step through while it's open, rather than waiting until you feel completely sure." },
+      { "pos": "What's the Next Step?", "reading": "The next step is to keep going while guarding your energy. Whichever path you take, the Nine of Wands says this is a last stretch rather than a fresh sprint, so set firm limits on what you'll carry while you make the move." }
+    ],
+    "hexagram": "Fellowship says your next chapter is built through alliances made in the open: former colleagues, partners, people who share your purpose. The changing line warns against forcing a confrontation with your current organisation on the way out or up. The move to The Family says sort out your home base first: finances, close support, and clear roles, before widening the circle.",
+    "answer": "The draw doesn't say \"leave now\" or \"stay put\". It says the either-or framing is part of what's keeping you on the wall. You have a lot to give and you want your own judgement to be the thing you're paid for; that points towards consulting in some form. But Temperance and The Family both favour a staged move with a solid base, over a leap.\n\nThe real block is the Two of Wands: the plan exists, and planning has become the safe place to stay. The Wheel says the timing is turning this year, and the Nine of Wands says to treat it as a last stretch where you protect your energy.\n\nSo the draw's answer is: test the practice for real while you still have your base. Have the conversations, set fair terms, and let one or two real pieces of work show you whether the exchange is right. Don't burn the bridge on the way; Fellowship says your future clients are likely already in your circle.\n\nThe one thing it most asks of you: stop planning the step and take a small, real one."
+  }
+}

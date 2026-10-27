@@ -310,6 +310,13 @@ function gateItems(c){
 }
 const ov=(label,list)=>GUIDE+' Write a 200–260 word overview of the '+label+' in one person’s bodygraph, as one connected picture. Second person, warm, no headings or lists.\n\n'+list;
 
+// Plain-text forecast for reports (the same daily scan as the transit page).
+function forecast(c,days){
+  const now=new Date();
+  return rowsForecastText(hdForecast(c,now,days).map((d,i)=>{const date=new Date(+now+(i+1)*DAY_MS);date.setUTCHours(12,0,0,0);return{...d,date};}),
+    t=>/stations/.test(t)?'station':/Sun enters/.test(t)?'gate':/completes/.test(t)?'personal':/Sky defines/.test(t)?'sky':'other');
+}
+
 window.SYSTEM={
   id:'human-design',pageTitle:'Human Design Bodygraph',title:'Human Design Bodygraph',noun:'Bodygraph',
   formTitle:'Human Design Bodygraph',formSub:'Type, strategy, authority, centres and channels from your birth and design moments.',
@@ -323,6 +330,7 @@ window.SYSTEM={
   chartHTML:c=>`<div class="svg-wrap">${bodygraphSVG(c)}</div>
     <p class="note" style="text-align:center">Black = Personality (conscious, birth) · Red = Design (unconscious, 88° earlier) · striped = both · Incarnation Cross: ${c.cross.angle} ${c.cross.gates}</p>`,
   positionsHTML,transitsHTML,
+  forecast,
   reading:{title:'Transit Reading',sections:SECTIONS,data:readingData},
   guide:{title:'Bodygraph Guide',fab:'Bodygraph Guide',tabs:[
     {key:'type',name:'Type',icon:'⚡',col:'#9a2a2a',blurb:'Type, strategy, authority, profile, definition and cross',items:typeItems,

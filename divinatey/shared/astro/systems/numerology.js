@@ -286,6 +286,17 @@ function cycleItems(c){
 const ov=(label,list)=>VOICE+' Write a 200–260 word overview of the '+label+' in one person’s numerology chart, as one connected picture. Second person, warm, no headings or lists.\n\n'+list;
 const lines=items=>items.map(i=>`${i.title}: ${i.code} (${i.sub})`).join('\n');
 
+// Plain-text forecast for reports: each day's personal number, and month or year changes.
+function forecast(c,days){
+  return Array.from({length:days},(_,i)=>{
+    const t=addDays(c.today,i+1),cy=cycles(c.b,t),items=[];
+    if(t.m===1&&t.d===1)items.push({kind:'cycle',text:`Personal year ${cy.year} begins (${kw(cy.year)})`});
+    if(t.d===1)items.push({kind:'cycle',text:`Personal month ${cy.month} begins (${kw(cy.month)})`});
+    items.push({kind:'day',text:`Personal day ${cy.day} (${kw(cy.day)})`});
+    return{date:`${t.y}-${String(t.m).padStart(2,'0')}-${String(t.d).padStart(2,'0')}`,label:dateLabel(t),items};
+  });
+}
+
 window.SYSTEM={
   id:'numerology',pageTitle:'Numerology Chart',title:'Numerology Chart',noun:'Chart',
   formTitle:'Numerology',formSub:'Pythagorean numerology from your full name at birth and your birth date: core numbers, pinnacles, challenges and your personal year, month and day.',
@@ -294,7 +305,7 @@ window.SYSTEM={
   compute,
   header:c=>'Pythagorean',
   badges:c=>[{n:c.lifePath.n,h:'Life Path',p:kw(c.lifePath.n)},{n:c.expression.n,h:'Expression',p:kw(c.expression.n)},{n:c.soul.n,h:'Soul Urge',p:kw(c.soul.n)}],
-  chartHTML,positionsHTML,transitsHTML,
+  chartHTML,positionsHTML,transitsHTML,forecast,
   reading:{title:'Cycle Reading',sections:SECTIONS,data:readingData},
   guide:{title:'Numbers Guide',fab:'Numbers Guide',tabs:[
     {key:'core',name:'Core Numbers',icon:'✶',col:'#7a4a8a',blurb:'From your birth date and full name',items:coreItems,

@@ -427,6 +427,11 @@ function seqPrompt(p,meta){
     'Reference the sphere names and key qualities naturally. Warm, direct, second person. No headings, no bullet lists.';
 }
 
+// Plain-text forecast for reports (the same calculation as the transit page).
+const forecast=(p,days)=>aspectForecastText(tcfg(p),new Date(),days,{
+  personal:h=>{const g=gateLine(h.tLon),gk=GK[g.gate]||{};return`${h.body} in Gene Key ${g.gate}.${g.line} (${gk.shadow||'?'} → ${gk.gift||'?'}) ${h.asp.name} your ${h.pt.name} (Key ${h.pt.gate})`;},
+  sky:h=>`${h.p1} (Key ${gtxt(h.lon1)}) ${h.asp.name} ${h.p2} (Key ${gtxt(h.lon2)})`});
+
 window.SYSTEM={
   id:'gene-keys',pageTitle:'Gene Keys Hologenetic Profile',title:'Hologenetic Profile',noun:'Profile',
   formTitle:'Gene Keys Hologenetic Profile',formSub:'Activation, Venus and Pearl sequences from your birth moment and design moment.',
@@ -443,6 +448,7 @@ window.SYSTEM={
   badges:p=>[{n:p.pLine,h:'Profile Line',p:p.pDesc}],
   chartHTML:p=>`<div class="svg-wrap">${buildSVG(p)}</div>`,
   positionsHTML,transitsHTML,
+  forecast,
   reading:{title:'Energetic Signature Reading',sections:SECTIONS,data:readingData},
   guide:{title:'Profile Guide',fab:'Profile Guide',
     tabs:SEQ_META.map(m=>({key:m.key,name:m.name,icon:m.icon,col:m.col,blurb:m.blurb,

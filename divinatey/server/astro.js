@@ -182,3 +182,26 @@ export function chartFactCards(inp) {
 export const systemMeta = () => Object.fromEntries(Object.entries(engines).map(([id, e]) =>
   [id, { title: e.SYSTEM.formTitle, sub: e.SYSTEM.formSub, needsLocation: !!e.SYSTEM.needsLocation,
     needsBirthName: !!e.SYSTEM.needsBirthName, dateOnly: !!e.SYSTEM.dateOnly }]));
+
+// Everything the Career Reading needs from one system, calculated in that
+// system's own isolated engine: the panel items (with the same prompts the
+// guide uses), each tab's overview prompt, today's timing, the next `days` of
+// forecast and the chart itself as HTML (the report turns it into text).
+export function careerData(inp, days = 30) {
+  const { engine, chart } = computeChart(inp);
+  const S = engine.SYSTEM;
+  const tabs = S.guide.tabs.map(t => ({
+    key: t.key, name: t.name, blurb: t.blurb,
+    overviewPrompt: t.overview ? t.overview(chart) : null,
+    items: t.items(chart).map(it => ({ title: it.title, code: plain(it.code), sub: plain(it.sub), role: it.role || "", prompt: it.prompt })),
+  }));
+  return {
+    system: inp.system, title: S.title, label: SYSTEM_PLAIN[inp.system],
+    badges: (S.badges(chart) || []).map(b => ({ name: b.h, value: plain(b.p), mark: plain(b.n) })),
+    header: S.header ? plain(S.header(chart)) : "",
+    tabs,
+    readingData: S.reading.data(chart),
+    forecast: S.forecast ? S.forecast(chart, days) : [],
+    chartHTML: S.chartHTML(chart) + (S.positionsHTML ? S.positionsHTML(chart) : ""),
+  };
+}

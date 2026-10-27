@@ -311,6 +311,19 @@ function yogaItems(c){
 }
 const ov=(label,list)=>VOICE+' Write a 200–260 word overview of the '+label+' in one person’s chart, as one connected picture. Second person, warm, no headings or lists.\n\n'+list;
 
+// Plain-text forecast for reports: the same daily scan as the transit page, plus dasha changes.
+function forecast(c,days){
+  const now=new Date();
+  const out=rowsForecastText(vedicForecast(c,now,days).map((d,i)=>{const date=new Date(+now+(i+1)*DAY_MS);date.setUTCHours(0,30,0,0);return{...d,date};}),
+    t=>/^Moon /.test(t)?'moon':/stations/.test(t)?'station':/enters/.test(t)?'ingress':/observance/.test(t)?'observance':'other');
+  let prev=dashaAt(c.v,now);
+  out.forEach(d=>{const at=dashaAt(c.v,new Date(d.date+'T12:00:00Z'));
+    if(at&&prev&&at.md!==prev.md)d.items.unshift({kind:'dasha',text:`Mahadasha changes: ${prev.md.lord} → ${at.md.lord}`});
+    else if(at&&prev&&at.ad!==prev.ad)d.items.unshift({kind:'dasha',text:`Antardasha changes: ${at.md.lord}–${prev.ad.lord} → ${at.md.lord}–${at.ad.lord}`});
+    prev=at||prev;});
+  return out;
+}
+
 window.SYSTEM={
   id:'vedic',pageTitle:'Vedic Astrology Chart',title:'Vedic Chart',noun:'Chart',
   formTitle:'Vedic Astrology (Jyotish)',formSub:'Sidereal zodiac · Lahiri ayanamsa · whole-sign houses · Vimshottari dasha.',
@@ -321,7 +334,7 @@ window.SYSTEM={
   badges:c=>{const da=dashaAt(c.v,new Date());return[
     {n:RASHI[c.ls].slice(0,3),h:'Lagna',p:sidPos(c.lagna)},{n:'☽︎',h:'Moon · Rashi',p:`${RASHI[c.moonSign]} · ${c.G.Moon.nak.name} ${c.G.Moon.nak.pada}`},
     {n:da?ABBR[da.md.lord]+'–'+ABBR[da.ad.lord]:'—',h:'Dasha now',p:da?`${da.md.lord} / ${da.ad.lord}`:'—'}];},
-  chartHTML,positionsHTML,transitsHTML,
+  chartHTML,positionsHTML,transitsHTML,forecast,
   reading:{title:'Jyotish Reading',sections:SECTIONS,data:readingData},
   guide:{title:'Jyotish Guide',fab:'Jyotish Guide',tabs:[
     {key:'grahas',name:'Lagna & Grahas',icon:'🌅',col:'#b4561a',blurb:'Lagna and the nine grahas by sign and house',items:grahaItems,

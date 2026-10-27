@@ -256,6 +256,20 @@ function aspectForecast(cfg,start,days){
   return out;
 }
 
+// ─── Plain-text forecasts (for reports): [{date, label, items:[{kind, text}]}] ──
+const stripTags=h=>String(h==null?'':h).replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+function aspectForecastText(cfg,start,days,fmt){
+  return aspectForecast(cfg,start,days).map(d=>({date:fmtDate(d.date),label:d.label,items:[
+    ...d.stations.map(s=>({kind:'station',body:s.body,text:`${s.body} stations ${s.type}`})),
+    ...d.personal.map(h=>({kind:'personal',body:h.body,target:h.pt.key,exact:h.asp.orb<0.5,text:fmt.personal(h)+(h.asp.orb<0.5?' (exact)':'')})),
+    ...d.sky.map(h=>({kind:'sky',body:h.p1,exact:h.asp.orb<0.5,text:(fmt.sky?fmt.sky(h):`${h.p1} ${h.asp.name} ${h.p2}`)+(h.asp.orb<0.5?' (exact)':'')})),
+  ]}));
+}
+// Turns a module's HTML forecast rows into kinds by their wording.
+function rowsForecastText(days,kindOf){
+  return days.map(d=>({date:d.date?fmtDate(d.date):'',label:d.label,items:d.rows.map(r=>{const text=stripTags(r).replace(/^[^\p{L}\p{N}(]+/u,'').replace(/\s+(NEW|EXACT)$/,'');return{kind:kindOf(text),text};})}));
+}
+
 // ─── HTML helpers ────────────────────────────────────────────────────────────
 const secH=(t,small)=>`<h3 class="sec-h">${t}${small?`<small>${small}</small>`:''}</h3>`;
 function tableHTML(heads,rows,emptyMsg){

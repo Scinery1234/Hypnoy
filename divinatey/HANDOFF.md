@@ -44,13 +44,26 @@ One site (Express server + React/Vite client) with:
 - `supabase/migrations/0001–0004` — run in order in the Supabase SQL editor (0004 adds Numerology to saved charts)
 - `scripts/stripe-setup.mjs` (`npm run stripe:setup`) — creates prices, billing portal and webhook
 - `shared/astro/systems/numerology.js` — Numerology (no astronomy; `needsBirthName` and `dateOnly` flags change the form)
-- Tests: `npm test` (58 tests; Claude, Supabase and Stripe are mocked)
+- `server/career/` — the Career Reading engine (see below); `scripts/career-reading.mjs` runs it
+- Tests: `npm test` (67 tests; Claude, Supabase and Stripe are mocked)
 
 ## Setup still to do (by the user)
 
 1. Supabase: run migrations 0001, 0002, 0003, 0004; add redirect URLs `/account` and `/preview/account`; set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `FREE_LIMIT_SECRET`.
 2. Stripe (test mode first): `STRIPE_SECRET_KEY=sk_test_... PUBLIC_URL=https://site npm run stripe:setup`; set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_URL`; test with card 4242 4242 4242 4242.
 3. Before launch: Stripe business details and activation; legal review of Terms/Privacy (refunds); currency (USD now, AUD on request); run setup with the live key; `PAID_PREVIEW=0`.
+
+## Career Reading (in progress)
+
+A long careers report: a short quiz (Work Style Compass short form + New Page quadrant), birth details, a query-blind I Ching and Tarot cast, the question, then all five charts read for career, a profile, current state, the next 30 days and the tailored New Page 4-week plan. Design: `docs/career-reading/PLAN.md`.
+
+- **Engine:** `server/career/` (quiz, content, relevance rules, pipeline, renderer, chart-to-text). 202 AI steps for the sample; each is one fresh prompt from calculated data, never from another step's text. Chart steps see one system only. Cross-system steps (profile, current, month, answer, plan) get data from all five and are told that Gene Keys/Human Design and Natal/Vedic share calculation bases.
+- **Each system** now exports `forecast(chart, days)` (plain text), used for the 30-day sections.
+- **Run it:** `npm run career:reading -- docs/career-reading/sample/input.json --out report.md --dossier dossier.md` (uses the API if `ANTHROPIC_API_KEY` is set; `--answers file.json` renders from saved outputs).
+- **Sample:** `docs/career-reading/sample/` — input, every step's prompt (`dossier.md`), outputs (`answers.json`) and `report.md` (~27,500 words). The outputs were written in a Claude Code session from each step's prompt, because no API key was available; it tests the format, not true isolation. Rerun with a key for a real comparison.
+- **Prototype UI:** `docs/career-reading/prototype/` (`npm run career:prototype` builds `index.html` with the real quiz scoring and casting inlined). Published as a private artifact. New Page brand, light only.
+- **Not built yet:** server routes, payment, background generation and email, PDF export, "I don't know my birth time" handling (time-sensitive items should be dropped), place search in the prototype.
+- **Open decisions:** brand (New Page vs Divinatey), price and where it sits, the four new Compass statements (check against the full 40-question bank).
 
 ## Open items / ideas
 
